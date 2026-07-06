@@ -12,7 +12,7 @@ public class RequestDispatcherTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<ICommandHandler<TestCommand, string>, TestCommandHandler>();
+        services.AddScoped<IRequestHandler<TestCommand, string>, TestCommandHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 
@@ -30,7 +30,7 @@ public class RequestDispatcherTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<IQueryHandler<TestQuery, int>, TestQueryHandler>();
+        services.AddScoped<IRequestHandler<TestQuery, int>, TestQueryHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 
@@ -44,25 +44,7 @@ public class RequestDispatcherTests
     }
 
     [Fact]
-    public async Task Dispatch_WithUnknownRequestType_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        var serviceProvider = services.BuildServiceProvider();
-        var dispatcher = new RequestDispatcher(serviceProvider);
-
-        var unknownRequest = new UnknownRequest();
-
-        // Act
-        var act = () => dispatcher.Dispatch(unknownRequest);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Unknown request type: UnknownRequest");
-    }
-
-    [Fact]
-    public async Task Dispatch_WithUnregisteredCommandHandler_ShouldThrowException()
+    public async Task Dispatch_WithUnregisteredHandler_ShouldThrowInvalidOperationException()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -79,28 +61,11 @@ public class RequestDispatcherTests
     }
 
     [Fact]
-    public async Task Dispatch_WithUnregisteredQueryHandler_ShouldThrowException()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        var serviceProvider = services.BuildServiceProvider();
-        var dispatcher = new RequestDispatcher(serviceProvider);
-
-        var query = new TestQuery { Number = 5 };
-
-        // Act
-        var act = () => dispatcher.Dispatch(query);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
     public async Task Dispatch_ShouldPassCancellationToken()
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<ICommandHandler<CancellableCommand, bool>, CancellableCommandHandler>();
+        services.AddScoped<IRequestHandler<CancellableCommand, bool>, CancellableCommandHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 

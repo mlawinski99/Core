@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5"/>
     </ItemGroup>
@@ -15,6 +16,8 @@
     <ItemGroup>
       <ProjectReference Include="..\Chatter.Messages.Application\Chatter.Messages.Application.csproj" />
       <ProjectReference Include="..\Core\Core.CQRS\Core.CQRS.csproj" />
+      <ProjectReference Include="..\Core\Core.CQRS.Decorators\Core.CQRS.Decorators.csproj" />
+      <ProjectReference Include="..\Core\Core.Validation\Core.Validation.csproj" />
       <ProjectReference Include="..\Core\Core.Observability\Core.Observability.csproj" />
       <ProjectReference Include="..\Core\Core.Web\Core.Web.csproj" />
       <ProjectReference Include="..\Core\Core.Migrator\Core.Migrator.csproj" />

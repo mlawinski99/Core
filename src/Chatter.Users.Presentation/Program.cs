@@ -1,12 +1,14 @@
 using System.Reflection;
 using Core.Migrator;
 using Core.CQRS;
+using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
 using Core.Infrastructure;
 using Core.KeycloakService;
 using Core.Logger;
 using Core.Observability;
 using Chatter.Users.DataAccess;
+using Core.Validation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -47,6 +49,8 @@ builder.Services.AddAppLogger();
 builder.AddObservability("users-api");
 builder.Services.Configure<KeycloakConfig>(keycloakConfiguration);
 builder.Services.AddValidatorsFromAssembly(assembly);
+builder.Services.AddValidation();
+builder.Services.AddCqrsDecorators();
 
 var app = builder.Build();
 

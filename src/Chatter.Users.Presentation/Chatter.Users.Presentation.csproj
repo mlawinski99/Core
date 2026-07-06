@@ -17,6 +17,8 @@
       <ProjectReference Include="..\Chatter.Users.Application\Chatter.Users.Application.csproj" />
       <ProjectReference Include="..\Chatter.Users.DataAccess\Chatter.Users.DataAccess.csproj" />
       <ProjectReference Include="..\Core\Core.CQRS\Core.CQRS.csproj" />
+      <ProjectReference Include="..\Core\Core.CQRS.Decorators\Core.CQRS.Decorators.csproj" />
+      <ProjectReference Include="..\Core\Core.Validation\Core.Validation.csproj" />
       <ProjectReference Include="..\Core\Core.DataAccessTypes\Core.DataAccessTypes.csproj" />
       <ProjectReference Include="..\Core\Core.Infrastructure\Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Core\Core.KeycloakService\Core.KeycloakService.csproj" />

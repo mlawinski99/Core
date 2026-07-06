@@ -2,6 +2,9 @@ using System.Reflection;
 using Chatter.MessagesDataAccess;
 using Core.Migrator;
 using Core.CQRS;
+using Core.CQRS.Decorators;
+using Core.Validation;
+using FluentValidation;
 using Core.DataAccessTypes;
 using Core.Infrastructure;
 using Core.Logger;
@@ -47,6 +50,9 @@ builder.Services.AddMessagesDataAccess(builder.Configuration);
 
 builder.Services.AddAppLogger();
 builder.Services.AddCqrs(assembly);
+builder.Services.AddValidatorsFromAssembly(assembly);
+builder.Services.AddValidation();
+builder.Services.AddCqrsDecorators();
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
