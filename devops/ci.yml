@@ -35,10 +35,16 @@ stages:
         displayName: 'Detect Changed Paths'
         steps:
           - checkout: self
-            fetchDepth: 2
+            fetchDepth: 0
 
           - script: |
-              CHANGED=$(git diff --name-only HEAD~1 HEAD)
+              if [ "$(Build.Reason)" = "PullRequest" ]; then
+                TARGET_BRANCH=$(echo "$(System.PullRequest.TargetBranch)" | sed 's|refs/heads/||')
+                git fetch origin "$TARGET_BRANCH"
+                CHANGED=$(git diff --name-only "origin/$TARGET_BRANCH...HEAD")
+              else
+                CHANGED=$(git diff --name-only HEAD~1 HEAD)
+              fi
               echo "Changed files:"
               echo "$CHANGED"
 

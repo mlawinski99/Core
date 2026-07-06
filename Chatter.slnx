@@ -1,0 +1,59 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Chatter.AppHost/Chatter.AppHost.csproj" />
+    <Project Path="src/Chatter.Messages.Application/Chatter.Messages.Application.csproj" />
+    <Project Path="src/Chatter.Messages.DataAccess/Chatter.Messages.DataAccess.csproj" />
+    <Project Path="src/Chatter.Messages.Domain/Chatter.Messages.Domain.csproj" />
+    <Project Path="src/Chatter.Messages.Gateaway/Chatter.Messages.Gateaway.csproj" />
+    <Project Path="src/Chatter.Messages.Presentation/Chatter.Messages.Presentation.csproj" />
+    <Project Path="src/Chatter.Shared.Context/Chatter.Shared.Context.csproj" />
+    <Project Path="src/Chatter.Shared.Domain/Chatter.Shared.Domain.csproj" />
+    <Project Path="src/Chatter.Shared.KeycloakEventsProcessor/Chatter.Shared.KeycloakEventsProcessor.csproj" />
+    <Project Path="src/Chatter.SignalRService/Chatter.SignalRService.csproj" />
+    <Project Path="src/Chatter.SyncKeycloakEventsJob/Chatter.SyncKeycloakEventsJob.csproj" />
+    <Project Path="src/Chatter.Users.Application/Chatter.Users.Application.csproj" />
+    <Project Path="src/Chatter.Users.DataAccess/Chatter.Users.DataAccess.csproj" />
+    <Project Path="src/Chatter.Users.Gateaway/Chatter.Users.Gateaway.csproj" />
+    <Project Path="src/Chatter.Users.Presentation/Chatter.Users.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/Core.CQRS.Decorators/Core.CQRS.Decorators.csproj" />
+    <Project Path="src/Core/Core.CQRS/Core.CQRS.csproj" />
+    <Project Path="src/Core/Core.DataAccessTypes/Core.DataAccessTypes.csproj" />
+    <Project Path="src/Core/Core.DateTimeProvider/Core.DateTimeProvider.csproj" />
+    <Project Path="src/Core/Core.DomainTypes/Core.DomainTypes.csproj" />
+    <Project Path="src/Core/Core.Gateway/Core.Gateway.csproj" />
+    <Project Path="src/Core/Core.Infrastructure/Core.Infrastructure.csproj" />
+    <Project Path="src/Core/Core.KafkaConsumer/Core.KafkaConsumer.csproj" />
+    <Project Path="src/Core/Core.KafkaProducer/Core.KafkaProducer.csproj" />
+    <Project Path="src/Core/Core.KeycloakService/Core.KeycloakService.csproj" />
+    <Project Path="src/Core/Core.Logger/Core.Logger.csproj" />
+    <Project Path="src/Core/Core.Migrator/Core.Migrator.csproj" />
+    <Project Path="src/Core/Core.Observability/Core.Observability.csproj" />
+    <Project Path="src/Core/Core.Outbox/Core.Outbox.csproj" />
+    <Project Path="src/Core/Core.Pager/Core.Pager.csproj" />
+    <Project Path="src/Core/Core.ResultPattern/Core.ResultPattern.csproj" />
+    <Project Path="src/Core/Core.Validation/Core.Validation.csproj" />
+    <Project Path="src/Core/Core.Web/Core.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Chatter.IntegrationTests.Messages/Chatter.IntegrationTests.Messages.csproj" />
+    <Project Path="tests/Chatter.IntegrationTests.Shared/Chatter.IntegrationTests.Shared.csproj" />
+    <Project Path="tests/Chatter.IntegrationTests.Users/Chatter.IntegrationTests.Users.csproj" />
+  </Folder>
+  <Folder Name="/tests/Core/">
+    <Project Path="tests/Core/Core.InfrastructureTests.DataAccessTypes/Core.InfrastructureTests.DataAccessTypes.csproj" />
+    <Project Path="tests/Core/Core.InfrastructureTests.Kafka/Core.InfrastructureTests.Kafka.csproj" />
+    <Project Path="tests/Core/Core.InfrastructureTests.KeycloakIntegration/Core.InfrastructureTests.KeycloakIntegration.csproj" />
+    <Project Path="tests/Core/Core.InfrastructureTests.Migrator/Core.InfrastructureTests.Migrator.csproj" />
+    <Project Path="tests/Core/Core.InfrastructureTests.Outbox/Core.InfrastructureTests.Outbox.csproj" />
+    <Project Path="tests/Core/Core.UnitTests.CQRS.Decorators/Core.UnitTests.CQRS.Decorators.csproj" />
+    <Project Path="tests/Core/Core.UnitTests.CQRS/Core.UnitTests.CQRS.csproj" />
+    <Project Path="tests/Core/Core.UnitTests.Infrastructure/Core.UnitTests.Infrastructure.csproj" />
+  </Folder>
+</Solution>
