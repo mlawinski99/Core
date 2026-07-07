@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Chatter.IntegrationTests.Shared.Infrastructure;
 using Chatter.IntegrationTests.Users.Infrastructure;
 using Chatter.Users.Application.Users.Errors;
+using Core.KeycloakService;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -25,8 +26,8 @@ public class RegisterUserTests
     [Fact]
     public async Task RegisterUser_ValidRequest_Returns200()
     {
-        _fixture.KeycloakService.GetToken().Returns("fake-token");
-        _fixture.KeycloakService.CreateUser("fake-token", "newuser", "newuser@test.com")
+        _fixture.KeycloakService.GetToken().Returns("token");
+        _fixture.KeycloakService.CreateUser("token", "newuser", "newuser@test.com", "password123")
             .Returns(Task.CompletedTask);
 
         var response = await _client.PostAsJsonAsync("/api/users/register", new
@@ -111,10 +112,31 @@ public class RegisterUserTests
     }
 
     [Fact]
-    public async Task RegisterUser_KeycloakFails_Returns400()
+    public async Task RegisterUser_DuplicateUser_Returns409()
     {
-        _fixture.KeycloakService.GetToken().Returns("fake-token");
-        _fixture.KeycloakService.CreateUser("fake-token", Arg.Any<string>(), Arg.Any<string>())
+        _fixture.KeycloakService.GetToken().Returns("token");
+        _fixture.KeycloakService.CreateUser("token", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            .Throws(new KeycloakException("Keycloak CreateUser failed with code Conflict", HttpStatusCode.Conflict));
+
+        var response = await _client.PostAsJsonAsync("/api/users/register", new
+        {
+            Username = "existinguser",
+            Password = "password123",
+            ConfirmPassword = "password123",
+            Email = "existing@test.com"
+        });
+
+        var result = await response.ReadResult();
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain(ErrorMessages.UserAlreadyExists);
+    }
+
+    [Fact]
+    public async Task RegisterUser_KeycloakUnavailable_Returns500()
+    {
+        _fixture.KeycloakService.GetToken().Returns("token");
+        _fixture.KeycloakService.CreateUser("token", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
             .Throws(new HttpRequestException("Keycloak error"));
 
         var response = await _client.PostAsJsonAsync("/api/users/register", new
@@ -126,8 +148,7 @@ public class RegisterUserTests
         });
 
         var result = await response.ReadResult();
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain(ErrorMessages.FailedToRegisterUser);
     }
 }

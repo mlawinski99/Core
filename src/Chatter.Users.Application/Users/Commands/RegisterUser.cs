@@ -1,8 +1,8 @@
+using System.Net;
 using Core.CQRS;
 using Core.KeycloakService;
 using Core.Logger;
 using Core.ResultPattern;
-using FluentValidation;
 
 using static Chatter.Users.Application.Users.Errors.ErrorMessages;
 
@@ -13,32 +13,26 @@ public class RegisterUser : ICommandHandler<RegisterUser.RegisterUserCommand, Re
         public record RegisterUserCommand(string Username, string Password, string ConfirmPassword, string Email) : ICommand<Result>;
 
         private readonly IKeycloakService _keycloakService;
-        private readonly IValidator<RegisterUserCommand> _validator;
         private readonly IAppLogger<RegisterUser> _logger;
 
-        public RegisterUser(IKeycloakService keycloakService, IValidator<RegisterUserCommand> validator, IAppLogger<RegisterUser> logger)
+        public RegisterUser(IKeycloakService keycloakService, IAppLogger<RegisterUser> logger)
         {
                 _keycloakService = keycloakService;
-                _validator = validator;
                 _logger = logger;
         }
 
         public async Task<Result> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
         {
-                var validationResult = await _validator.ValidateAsync(command, cancellationToken);
-                if (!validationResult.IsValid)
-                        return Result.BadRequest(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
-
                 try
                 {
                         var token = await _keycloakService.GetToken();
-                        await _keycloakService.CreateUser(token, command.Username, command.Email);
+                        await _keycloakService.CreateUser(token, command.Username, command.Email, command.Password);
                         return Result.Success;
                 }
-                catch (HttpRequestException ex)
+                catch (KeycloakException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
                 {
-                        _logger.LogError("Failed to register user {Username} with email {Email}: {Error}", command.Username, command.Email, ex.Message);
-                        return Result.BadRequest(FailedToRegisterUser);
+                        _logger.LogWarning("Registration conflict for {Username}: {Message}", command.Username, ex.Message);
+                        return Result.Conflict(UserAlreadyExists);
                 }
         }
 }

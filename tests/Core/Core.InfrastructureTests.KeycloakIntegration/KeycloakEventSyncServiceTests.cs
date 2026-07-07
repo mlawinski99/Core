@@ -27,8 +27,9 @@ public class KeycloakEventSyncServiceTests : IntegrationTestBase<KeycloakEventSy
         var token = await keycloakService.GetToken();
 
         var username = "test24";
+        var password = "testPassword123";
         var email = $"{username}24@test.com";
-        await keycloakService.CreateUser(token, username, email);
+        await keycloakService.CreateUser(token, username, email, password);
 
         await Task.Delay(500);
 
@@ -94,7 +95,7 @@ public class KeycloakEventSyncServiceTests : IntegrationTestBase<KeycloakEventSy
 
         var username = "testcreate";
         var email = $"{username}create@test.com";
-        await keycloakService.CreateUser(token, username, email);
+        await keycloakService.CreateUser(token, username, email, "testPassword123");
 
         await Task.Delay(500);
 
@@ -142,8 +143,9 @@ public class KeycloakEventSyncServiceTests : IntegrationTestBase<KeycloakEventSy
         var token = await keycloakService.GetToken();
 
         var username = "test";
+        var password = "testPassword123";
         var email = $"{username}@test.com";
-        await keycloakService.CreateUser(token, username, email);
+        await keycloakService.CreateUser(token, username, email, password);
 
         await Task.Delay(500);
 

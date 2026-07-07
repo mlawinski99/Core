@@ -65,7 +65,7 @@ public class KeycloakServiceTests : IntegrationTestBase<KeycloakEventSyncTestFix
         var token = await keycloakService.GetToken();
 
         // Act
-        var act = () => keycloakService.CreateUser(token, "testUserCreate", "testUserCreate@test.com");
+        var act = () => keycloakService.CreateUser(token, "testUserCreate", "testUserCreate@test.com", "testPassword123");
 
         // Assert
         await act.Should().NotThrowAsync();

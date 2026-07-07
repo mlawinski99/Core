@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Chatter.IntegrationTests.Shared.Infrastructure;
 using Chatter.IntegrationTests.Users.Infrastructure;
 using Chatter.Users.Application.Users.Errors;
+using Core.KeycloakService;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -59,12 +60,12 @@ public class LogoutUserTests
     {
         var client = _fixture.Api.CreateAuthenticatedClient();
 
-        _fixture.KeycloakService.LogoutUser("bad-token")
-            .Throws(new HttpRequestException("Keycloak error"));
+        _fixture.KeycloakService.LogoutUser("token")
+            .Throws(new KeycloakException("Keycloak LogoutUser failed with code BadRequest", HttpStatusCode.BadRequest));
 
         var response = await client.PostAsJsonAsync("/api/users/logout", new
         {
-            RefreshToken = "bad-token"
+            RefreshToken = "token"
         });
 
         var result = await response.ReadResult();
@@ -80,7 +81,7 @@ public class LogoutUserTests
 
         var response = await client.PostAsJsonAsync("/api/users/logout", new
         {
-            RefreshToken = "some-token"
+            RefreshToken = "token"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -11,7 +12,7 @@ public interface IKeycloakService
 {
     Task<string> GetToken();
     Task<KeycloakUserDto?> GetUser(string token, string userId);
-    Task CreateUser(string token, string username, string email);
+    Task CreateUser(string token, string username, string email, string password);
     Task UpdateUser(string token, string userId, string email);
     Task DeleteUser(string token, string userId);
     Task<KeycloakTokenResponse?> LoginUser(string username, string password);
@@ -45,7 +46,7 @@ public class KeycloakService : IKeycloakService
                 {"grant_type", "client_credentials"}
             }));
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, nameof(GetToken));
         var json = await response.Content.ReadAsStringAsync();
         var token = JsonSerializer.Deserialize<JsonElement>(json).GetProperty("access_token").GetString();
         
@@ -72,13 +73,22 @@ public class KeycloakService : IKeycloakService
         return keycloakUser;
     }
 
-    public async Task CreateUser(string token, string username, string email)
+    public async Task CreateUser(string token, string username, string email, string password)
     {
         var userJson = _jsonSerializer.Serialize(new
         {
             username = username,
             email = email,
-            enabled = true
+            enabled = true,
+            credentials = new[]
+            {
+                new
+                {
+                    type = "password",
+                    value = password,
+                    temporary = false
+                }
+            }
         });
 
         var request = new HttpRequestMessage(
@@ -90,11 +100,7 @@ public class KeycloakService : IKeycloakService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Keycloak CreateUser failed with code {response.StatusCode} and message {errorContent}");
-        }
+        await EnsureSuccessAsync(response, nameof(CreateUser));
     }
 
     public async Task UpdateUser(string token, string userId, string email)
@@ -113,12 +119,7 @@ public class KeycloakService : IKeycloakService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Keycloak UpdateUser failed with code {response.StatusCode} and message {errorContent}");
-        }
+        await EnsureSuccessAsync(response, nameof(UpdateUser));
     }
 
     public async Task DeleteUser(string token, string userId)
@@ -129,11 +130,7 @@ public class KeycloakService : IKeycloakService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Keycloak DeleteUser failed with code {response.StatusCode} and message {errorContent}");
-        }
+        await EnsureSuccessAsync(response, nameof(DeleteUser));
     }
 
     public async Task<KeycloakTokenResponse?> LoginUser(string username, string password)
@@ -149,8 +146,10 @@ public class KeycloakService : IKeycloakService
                 {"password", password}
             }));
 
-        if (!response.IsSuccessStatusCode)
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
             return null;
+
+        await EnsureSuccessAsync(response, nameof(LoginUser));
 
         var json = await response.Content.ReadAsStringAsync();
         return _jsonSerializer.Deserialize<KeycloakTokenResponse>(json);
@@ -167,10 +166,17 @@ public class KeycloakService : IKeycloakService
                 {"refresh_token", refreshToken}
             }));
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Keycloak LogoutUser failed with code {response.StatusCode} and message {errorContent}");
-        }
+        await EnsureSuccessAsync(response, nameof(LogoutUser));
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string operation)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var errorContent = await response.Content.ReadAsStringAsync();
+        var message = $"Keycloak {operation} failed with code {response.StatusCode} and message {errorContent}";
+
+        throw new KeycloakException(message, response.StatusCode);
     }
 }
