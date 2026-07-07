@@ -30,6 +30,12 @@ public class LoadMessages : IQueryHandler<LoadMessages.LoadMessagesQuery, Result
         if (!chatExists)
             return Result<CursorPagedResult<MessageDto>>.NotFound(ErrorMessages.ChatNotFound);
 
+        var isMember = await _chatDbContext.ChatMembers
+            .AnyAsync(x => x.Chat.Id == query.ChatId && x.User.Id == _userProvider.UserId, cancellationToken);
+
+        if (!isMember)
+            return Result<CursorPagedResult<MessageDto>>.Forbidden(ErrorMessages.NotChatMember);
+
         var filteredQuery = _chatDbContext.Messages
             .AsNoTracking()
             .Where(m => m.ChatId == query.ChatId)

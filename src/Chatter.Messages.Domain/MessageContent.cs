@@ -4,6 +4,8 @@ namespace Chatter.MessagesDomain;
 
 public class MessageContent : ValueObject
 {
+    public const int MaxLength = 1000;
+
     public string Text { get; }
 
     private MessageContent(string text)
@@ -16,7 +18,7 @@ public class MessageContent : ValueObject
         if (string.IsNullOrWhiteSpace(text))
             throw new DomainException("Message cannot be empty.");
 
-        if (text.Length > 1000)
+        if (text.Length > MaxLength)
             throw new DomainException("Message is too long.");
 
         return new MessageContent(text);

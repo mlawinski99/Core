@@ -35,25 +35,25 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
         _jsonSerializer = jsonSerializer;
     }
 
-    public async Task<bool> ProduceAsync(string topic, T message, CancellationToken cancellationToken = default)
+    public async Task<bool> ProduceAsync(string topic, T message, string? key = null, CancellationToken cancellationToken = default)
     {
         var serializedMessage = _jsonSerializer.Serialize(message);
-        var id = Guid.NewGuid().ToString();
+        var messageKey = key ?? Guid.NewGuid().ToString();
 
         try
         {
             await _producer.ProduceAsync(topic, new Message<string, string>
             {
-                Key = id,
+                Key = messageKey,
                 Value = serializedMessage
             }, cancellationToken);
 
-            _logger.LogInformation("Successfully delivered message {Id}", id);
+            _logger.LogInformation("Successfully delivered message {Key} to topic {Topic}", messageKey, topic);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Failed to deliver message {id} to topic {topic}", ex);
+            _logger.LogError(ex, "Failed to deliver message {Key} to topic {Topic}", messageKey, topic);
             return false;
         }
     }

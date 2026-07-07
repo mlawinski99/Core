@@ -36,6 +36,20 @@ public class LoadMessagesTests
     }
 
     [Fact]
+    public async Task LoadMessages_NotChatMember_Returns403()
+    {
+        var client = _fixture.Api.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync(
+            $"/Messages?chatId={MessagesDbSeeder.OtherUsersChatId}&pageSize=10");
+
+        var result = await response.ReadResult();
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain(ErrorMessages.NotChatMember);
+    }
+
+    [Fact]
     public async Task LoadMessages_WithCursor_ReturnsOlderMessages()
     {
         var client = _fixture.Api.CreateAuthenticatedClient();

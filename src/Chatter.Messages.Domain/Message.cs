@@ -29,7 +29,7 @@ public class Message : AggregateRoot, IAuditableWithUser, ISoftDeletable, IVersi
         message.Content = content;
         message.SenderId = senderId;
         message.ChatId = chatId;
-        message.AddDomainEvent(new MessageCreated(chatId, content.Text, senderId));
+        message.AddDomainEvent(new MessageCreated(message.Id, chatId, senderId));
 
         return message;
     }
@@ -44,6 +44,6 @@ public class Message : AggregateRoot, IAuditableWithUser, ISoftDeletable, IVersi
     {
         Content = newContent;
         Status = MessageStatus.Edited;
-        AddDomainEvent(new MessageEdited(Id, ChatId, newContent.Text));
+        AddDomainEvent(new MessageEdited(Id, ChatId));
     }
 }

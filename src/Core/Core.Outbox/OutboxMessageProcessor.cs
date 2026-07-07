@@ -37,7 +37,8 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
         {
             try
             {
-                var isProduceSucceeded = await _producer.ProduceAsync(message.Type, message, cancellationToken);
+                // @TODO batch publishing
+                var isProduceSucceeded = await _producer.ProduceAsync(message.Type, message, message.CorrelationId, cancellationToken);
 
                 if (isProduceSucceeded)
                 {
@@ -48,13 +49,13 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
                 }
                 else
                 {
-                    _logger.LogError("Failed to produce outbox message {MessageId} to topic {Topic}", message.Id, message.Type);
+                    _logger.LogError("Failed to produce outbox message {MessageId} to topic {Topic}; stopping batch to preserve ordering", message.Id, message.Type);
                     _db.Entry(message).State = EntityState.Unchanged;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError("Failed to process outbox message {MessageId}: {Error}", message.Id, ex.Message);
+                _logger.LogError(ex, "Failed to process outbox message {MessageId}; stopping batch to preserve ordering", message.Id);
                 _db.Entry(message).State = EntityState.Unchanged;
             }
         }

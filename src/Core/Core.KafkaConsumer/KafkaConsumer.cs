@@ -37,13 +37,28 @@ public class KafkaConsumer : IConsumer, IDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var result = _consumer.Consume(cancellationToken);
+            try
+            {
+                var result = _consumer.Consume(cancellationToken);
 
-            if (!_allowedTopics.Contains(result.Topic))
-                continue;
-            
-            _logger.LogInformation("Received message with topic: {topic}, key: {key} and value: {msg}", result.Topic, result.Message.Key, result.Message);
-            await handler(result.Topic, result.Message.Value);
+                if (!_allowedTopics.Contains(result.Topic))
+                    continue;
+
+                _logger.LogInformation("Received message from topic {Topic} with key {Key}", result.Topic, result.Message.Key);
+                await handler(result.Topic, result.Message.Value);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (ConsumeException ex)
+            {
+                _logger.LogError(ex, "Kafka consume error: {Reason}", ex.Error.Reason);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Message handler failed; message is skipped");
+            }
         }
     }
 

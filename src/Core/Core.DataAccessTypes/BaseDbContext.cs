@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq.Expressions;
 using Core.Outbox;
 using Core.DomainTypes;
@@ -70,6 +71,8 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
             .SelectMany(x => x.Entity.DomainEvents)
             .ToList();
 
+        var correlationId = Activity.Current?.TraceId.ToString();
+
         foreach (var domainEvent in domainEvents)
         {
             var message = new OutboxMessage
@@ -77,6 +80,7 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
                 OccurredOnUtc = domainEvent.OccurredOnUtc,
                 Type = domainEvent.GetType().FullName!,
                 Content = _jsonSerializer.Serialize(domainEvent),
+                CorrelationId = correlationId,
                 IsProcessed = false,
                 ProcessedOn = null
             };

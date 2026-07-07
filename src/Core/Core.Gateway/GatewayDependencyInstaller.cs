@@ -48,8 +48,8 @@ public static class GatewayDependencyInstaller
                 options.Authority = keycloakSection["Authority"];
                 options.Audience = keycloakSection["Audience"];
 
-                options.RequireHttpsMetadata = keycloakSection["RequireHttpsMetadata"] != null
-                    && keycloakSection["RequireHttpsMetadata"]!.Equals("true", StringComparison.OrdinalIgnoreCase);
+                options.RequireHttpsMetadata = !string.Equals(
+                    keycloakSection["RequireHttpsMetadata"], "false", StringComparison.OrdinalIgnoreCase);
 
                 options.TokenValidationParameters = new TokenValidationParameters
                 {

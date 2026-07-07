@@ -31,6 +31,12 @@ public class SendMessage : ICommandHandler<SendMessage.SendMessageCommand, Resul
         if (!chatExists)
             return Result.NotFound(ErrorMessages.ChatNotFound);
 
+        var isMember = await _chatDbContext.ChatMembers
+            .AnyAsync(x => x.Chat.Id == model.ChatId && x.User.Id == _userProvider.UserId, cancellationToken);
+
+        if (!isMember)
+            return Result.Forbidden(ErrorMessages.NotChatMember);
+
         var message = MessagesDomain.Message.Create(
             MessageContent.Create(model.Content),
             (Guid)_userProvider.UserId!,

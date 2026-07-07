@@ -4,14 +4,14 @@ namespace Chatter.MessagesDomain.Events;
 
 public class MessageCreated : DomainEventBase
 {
+    public Guid MessageId { get; private set; }
     public Guid ChatId { get; private set; }
-    public string Content { get; private set; }
     public Guid AuthorId { get; private set; }
 
-    public MessageCreated(Guid chatId, string content, Guid authorId)
+    public MessageCreated(Guid messageId, Guid chatId, Guid authorId)
     {
+        MessageId = messageId;
         ChatId = chatId;
-        Content = content;
         AuthorId = authorId;
     }
 }

@@ -9,11 +9,9 @@ public class UserProvider(IHttpContextAccessor httpContextAccessor) : IUserProvi
     {
         get
         {
-            var user = httpContextAccessor.HttpContext?.User;
-            if (user == null)
-                return null;
+            var value = httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            return Guid.Parse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            return Guid.TryParse(value, out var userId) ? userId : null;
         }
     }
 }

@@ -77,6 +77,23 @@ public class SendMessageTests
     }
 
     [Fact]
+    public async Task SendMessage_NotChatMember_Returns403()
+    {
+        var client = _fixture.Api.CreateAuthenticatedClient();
+
+        var response = await client.PostAsJsonAsync("/Messages", new
+        {
+            ChatId = MessagesDbSeeder.OtherUsersChatId,
+            Content = "test"
+        });
+
+        var result = await response.ReadResult();
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain(ErrorMessages.NotChatMember);
+    }
+
+    [Fact]
     public async Task SendMessage_Unauthenticated_Returns401()
     {
         var client = _fixture.Api.CreateClient();

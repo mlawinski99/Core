@@ -10,7 +10,7 @@ using Xunit;
 namespace Core.InfrastructureTests.Outbox;
 
 [Collection("Outbox")]
-public class OutboxMessageProcessorTests : IAsyncDisposable
+public class OutboxMessageProcessorTests : IAsyncLifetime
 {
     private readonly OutboxTestFixture _fixture;
     private readonly TestOutboxDbContext _db;
@@ -30,7 +30,13 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
             _db, _logger, _producer, _fixture.DateTimeProvider);
     }
 
-    public async ValueTask DisposeAsync()
+    public async Task InitializeAsync()
+    {
+        _db.OutboxMessages.RemoveRange(_db.OutboxMessages);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task DisposeAsync()
     {
         _db.OutboxMessages.RemoveRange(_db.OutboxMessages);
         await _db.SaveChangesAsync();
@@ -45,7 +51,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
         _db.OutboxMessages.Add(message);
         await _db.SaveChangesAsync();
 
-        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>())
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
         // Act
@@ -65,7 +71,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
         _db.OutboxMessages.Add(message);
         await _db.SaveChangesAsync();
 
-        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>())
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(false);
 
         // Act
@@ -89,7 +95,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
         _db.OutboxMessages.Add(message);
         await _db.SaveChangesAsync();
 
-        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>())
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("Kafka unavailable"));
 
         // Act
@@ -101,6 +107,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
         updated.ProcessedOn.Should().BeNull();
 
         _logger.Received().LogError(
+            Arg.Any<Exception>(),
             Arg.Is<string>(s => s.Contains("{MessageId}")),
             Arg.Is<object[]>(args => args.Any(a => a.Equals(message.Id))));
     }
@@ -121,7 +128,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
 
         // Assert
         await _producer.DidNotReceive()
-            .ProduceAsync(processed.Type, Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>());
+            .ProduceAsync(processed.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
     
 
@@ -141,7 +148,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
         await _db.SaveChangesAsync();
 
         var producedTopics = new List<string>();
-        _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>())
+        _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(true)
             .AndDoes(ci => producedTopics.Add(ci.ArgAt<string>(0)));
 
@@ -160,7 +167,7 @@ public class OutboxMessageProcessorTests : IAsyncDisposable
 
         // Assert
         await _producer.DidNotReceive()
-            .ProduceAsync(Arg.Is<string>(t => t.Contains(_testId)), Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>());
+            .ProduceAsync(Arg.Is<string>(t => t.Contains(_testId)), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     private OutboxMessage CreateUnprocessedMessage() => new()
