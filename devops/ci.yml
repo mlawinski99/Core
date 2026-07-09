@@ -12,7 +12,6 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: COMMON
   - name: buildConfiguration
     value: 'Release'
   - name: dotnetVersion
