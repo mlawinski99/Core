@@ -1,0 +1,43 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Core.BackgroundJobs/Core.BackgroundJobs.csproj" />
+    <Project Path="src/Core.CQRS.Decorators/Core.CQRS.Decorators.csproj" />
+    <Project Path="src/Core.CQRS/Core.CQRS.csproj" />
+    <Project Path="src/Core.DataAccessTypes/Core.DataAccessTypes.csproj" />
+    <Project Path="src/Core.DateTimeProvider/Core.DateTimeProvider.csproj" />
+    <Project Path="src/Core.DomainTypes/Core.DomainTypes.csproj" />
+    <Project Path="src/Core.Gateway/Core.Gateway.csproj" />
+    <Project Path="src/Core.Identity/Core.Identity.csproj" />
+    <Project Path="src/Core.Infrastructure/Core.Infrastructure.csproj" />
+    <Project Path="src/Core.KafkaConsumer/Core.KafkaConsumer.csproj" />
+    <Project Path="src/Core.KafkaProducer/Core.KafkaProducer.csproj" />
+    <Project Path="src/Core.Keycloak/Core.Keycloak.csproj" />
+    <Project Path="src/Core.KeycloakSync/Core.KeycloakSync.csproj" />
+    <Project Path="src/Core.Logger/Core.Logger.csproj" />
+    <Project Path="src/Core.Migrator/Core.Migrator.csproj" />
+    <Project Path="src/Core.Observability/Core.Observability.csproj" />
+    <Project Path="src/Core.Outbox/Core.Outbox.csproj" />
+    <Project Path="src/Core.Pager/Core.Pager.csproj" />
+    <Project Path="src/Core.ResultPattern/Core.ResultPattern.csproj" />
+    <Project Path="src/Core.Validation/Core.Validation.csproj" />
+    <Project Path="src/Core.Web/Core.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Core.InfrastructureTests.DataAccessTypes/Core.InfrastructureTests.DataAccessTypes.csproj" />
+    <Project Path="tests/Core.InfrastructureTests.Kafka/Core.InfrastructureTests.Kafka.csproj" />
+    <Project Path="tests/Core.InfrastructureTests.KeycloakIntegration/Core.InfrastructureTests.KeycloakIntegration.csproj" />
+    <Project Path="tests/Core.InfrastructureTests.Migrator/Core.InfrastructureTests.Migrator.csproj" />
+    <Project Path="tests/Core.InfrastructureTests.Outbox/Core.InfrastructureTests.Outbox.csproj" />
+    <Project Path="tests/Core.IntegrationTests.Shared/Core.IntegrationTests.Shared.csproj" />
+    <Project Path="tests/Core.UnitTests.BackgroundJobs/Core.UnitTests.BackgroundJobs.csproj" />
+    <Project Path="tests/Core.UnitTests.CQRS.Decorators/Core.UnitTests.CQRS.Decorators.csproj" />
+    <Project Path="tests/Core.UnitTests.CQRS/Core.UnitTests.CQRS.csproj" />
+    <Project Path="tests/Core.IntegrationTests.Identity/Core.IntegrationTests.Identity.csproj" />
+    <Project Path="tests/Core.UnitTests.Infrastructure/Core.UnitTests.Infrastructure.csproj" />
+  </Folder>
+</Solution>

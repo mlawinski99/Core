@@ -1,9 +1,0 @@
-{
-  "Encryption": {
-    "Key": "rkla9fVFInwB9r3XA/fNR53ZY6Vu+VvAfvhPRdMnr7k="
-  },
-  "Keycloak": {
-    "Audience": "account",
-    "RequireHttpsMetadata": "false"
-  }
-}

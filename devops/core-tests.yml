@@ -14,7 +14,20 @@ steps:
     displayName: 'Run Core Unit Tests'
     inputs:
       command: test
-      projects: 'tests/Core/Core.UnitTests.*/*.csproj'
+      projects: 'tests/Core.UnitTests.*/*.csproj'
+      arguments: >
+        --configuration ${{ parameters.buildConfiguration }}
+        --collect:"XPlat Code Coverage"
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      publishTestResults: true
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Core Integration Tests'
+    inputs:
+      command: test
+      projects: |
+        tests/Core.IntegrationTests.*/*.csproj
+        !tests/Core.IntegrationTests.Shared/*.csproj
       arguments: >
         --configuration ${{ parameters.buildConfiguration }}
         --collect:"XPlat Code Coverage"
@@ -25,7 +38,7 @@ steps:
     displayName: 'Run Core Infrastructure Tests'
     inputs:
       command: test
-      projects: 'tests/Core/Core.InfrastructureTests.*/*.csproj'
+      projects: 'tests/Core.InfrastructureTests.*/*.csproj'
       arguments: >
         --configuration ${{ parameters.buildConfiguration }}
         --collect:"XPlat Code Coverage"

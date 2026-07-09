@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FluentValidation" Version="12.1.1" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Core.CQRS\Core.CQRS.csproj" />
+      <ProjectReference Include="..\Core.DomainTypes\Core.DomainTypes.csproj" />
+      <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
+      <ProjectReference Include="..\Core.Keycloak\Core.Keycloak.csproj" />
+      <ProjectReference Include="..\Core.Logger\Core.Logger.csproj" />
+      <ProjectReference Include="..\Core.ResultPattern\Core.ResultPattern.csproj" />
+      <ProjectReference Include="..\Core.Web\Core.Web.csproj" />
+    </ItemGroup>
+
+</Project>
