@@ -1,20 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <RootNamespace>Core.KafkaProducer</RootNamespace>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
-
     <ItemGroup>
       <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Core.Logger\Core.Logger.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Confluent.Kafka" Version="2.14.0" />
-      <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.5" />
+      <PackageReference Include="Confluent.Kafka" />
+      <PackageReference Include="Microsoft.Extensions.Options" />
     </ItemGroup>
 
 </Project>

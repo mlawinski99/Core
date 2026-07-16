@@ -1,9 +1,9 @@
+using Core.DataAccessTypes;
 using Core.Infrastructure;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
-using Core.DataAccessTypes;
 using FluentAssertions;
 using Xunit;
 

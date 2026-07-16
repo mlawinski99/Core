@@ -12,7 +12,7 @@ public static class EntityTypeBuilderExtensions
 
         return builder;
     }
-    
+
     public static EntityTypeBuilder<TEntity> WithAuditable<TEntity>(this EntityTypeBuilder<TEntity> builder)
         where TEntity : Entity, IAuditable
     {
@@ -41,7 +41,7 @@ public static class EntityTypeBuilderExtensions
 
         return builder;
     }
-    
+
     public static EntityTypeBuilder<TEntity> WithVersionable<TEntity>(this EntityTypeBuilder<TEntity> builder)
         where TEntity : Entity, IVersionable
     {

@@ -1,8 +1,8 @@
-using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.DataAccessTypes;
 using Core.Identity.Context;
 using Core.Identity.Domain;
 using Core.Infrastructure.Json;
+using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

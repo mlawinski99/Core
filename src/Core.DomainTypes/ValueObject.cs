@@ -1,4 +1,4 @@
-﻿namespace Core.DomainTypes;
+namespace Core.DomainTypes;
 
 public abstract class ValueObject
 {

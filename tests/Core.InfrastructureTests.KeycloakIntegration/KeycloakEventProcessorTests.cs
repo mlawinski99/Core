@@ -1,10 +1,10 @@
+using Core.Identity.Domain;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
-using Core.Identity.Domain;
-using Core.Logger;
 using Core.Keycloak;
 using Core.KeycloakSync;
+using Core.Logger;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;

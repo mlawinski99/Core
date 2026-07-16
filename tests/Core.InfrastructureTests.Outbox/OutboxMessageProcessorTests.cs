@@ -1,7 +1,7 @@
 using Core.InfrastructureTests.Outbox.Fixtures;
-using Core.Outbox;
 using Core.KafkaProducer;
 using Core.Logger;
+using Core.Outbox;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -130,7 +130,7 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
         await _producer.DidNotReceive()
             .ProduceAsync(processed.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
-    
+
 
     [Fact]
     public async Task ProcessAsync_WithMultipleMessages_ShouldProcessInChronologicalOrder()

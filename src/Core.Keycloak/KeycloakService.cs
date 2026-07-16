@@ -24,8 +24,8 @@ public class KeycloakService : IKeycloakService
     private readonly IJsonSerializer _jsonSerializer;
     private readonly System.Net.Http.HttpClient _httpClient;
     private readonly KeycloakConfig _keycloakConfig;
-    private string _tokenUrl => KeycloakEndpoints.TokenEndpoint(_keycloakConfig.AuthServerUrl,  _keycloakConfig.Realm);
-    
+    private string _tokenUrl => KeycloakEndpoints.TokenEndpoint(_keycloakConfig.AuthServerUrl, _keycloakConfig.Realm);
+
     public KeycloakService(IHttpClientFactory httpClientFactory,
         IOptions<KeycloakConfig> keycloakConfig,
         IJsonSerializer jsonSerializer)
@@ -49,7 +49,7 @@ public class KeycloakService : IKeycloakService
         await EnsureSuccessAsync(response, nameof(GetToken));
         var json = await response.Content.ReadAsStringAsync();
         var token = JsonSerializer.Deserialize<JsonElement>(json).GetProperty("access_token").GetString();
-        
+
         return token;
     }
 

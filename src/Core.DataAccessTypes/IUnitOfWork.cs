@@ -1,4 +1,4 @@
-﻿namespace Core.DataAccessTypes;
+namespace Core.DataAccessTypes;
 
 public interface IUnitOfWork
 {

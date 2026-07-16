@@ -1,5 +1,5 @@
-using Core.Infrastructure;
 using Core.DomainTypes;
+using Core.Infrastructure;
 
 namespace Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 

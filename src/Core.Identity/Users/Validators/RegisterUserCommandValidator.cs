@@ -15,7 +15,7 @@ public class RegisterUserCommandValidator : AbstractValidator<RegisterUserComman
         RuleFor(x => x.Email)
             .NotEmpty()
             .WithMessage(ValidationMessages.EmailRequired);
-            
+
         RuleFor(x => x.Email)
             .EmailAddress()
             .WithMessage(ValidationMessages.InvalidEmailFormat);
@@ -23,11 +23,11 @@ public class RegisterUserCommandValidator : AbstractValidator<RegisterUserComman
         RuleFor(x => x.Password)
             .NotEmpty()
             .WithMessage(ValidationMessages.PasswordRequired);
-        
+
         RuleFor(x => x.Password)
             .MinimumLength(8)
             .WithMessage(ValidationMessages.PasswordMinLength);
-        
+
         RuleFor(x => x.ConfirmPassword)
             .Equal(x => x.Password)
             .WithMessage(ValidationMessages.PasswordsDoNotMatch);

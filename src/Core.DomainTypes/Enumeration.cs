@@ -31,10 +31,15 @@ public abstract class Enumeration : IComparable
 
         return typeMatches && valueMatches;
     }
-    
+
     public static T GetByName<T>(string name) where T : Enumeration =>
         GetAll<T>().FirstOrDefault(e => e.Name == name)
         ?? throw new InvalidOperationException($"'{name}' does not exist in {typeof(T)}");
-    
+
     public int CompareTo(object other) => Id.CompareTo(((Enumeration)other).Id);
+
+    public override int GetHashCode()
+    {
+        throw new NotImplementedException();
+    }
 }

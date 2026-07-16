@@ -14,13 +14,13 @@ public static class KeycloakServiceDependencyInstaller
         var policy = HttpPolicyExtensions
             .HandleTransientHttpError()
             .WaitAndRetryAsync(
-                3, 
+                3,
                 x => TimeSpan.FromSeconds(Math.Pow(2, x))
             );
 
         services.AddHttpClient(KeycloakEndpoints.HttpClientName)
             .AddPolicyHandler(policy);
-        
+
         return services;
     }
 }

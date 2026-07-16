@@ -1,6 +1,6 @@
+using Confluent.Kafka;
 using Core.Infrastructure.Json;
 using Core.Logger;
-using Confluent.Kafka;
 using Microsoft.Extensions.Options;
 
 namespace Core.KafkaProducer;
@@ -24,12 +24,12 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
             MessageTimeoutMs = kafkaConfig.MessageTimeoutMs,
             Acks = kafkaConfig.Acks.ToLowerInvariant() switch
             {
-                "none"   => Acks.None,
+                "none" => Acks.None,
                 "leader" => Acks.Leader,
-                _        => Acks.All
+                _ => Acks.All
             }
         };
-        
+
         _producer = new ProducerBuilder<string, string>(config).Build();
         _logger = logger;
         _jsonSerializer = jsonSerializer;

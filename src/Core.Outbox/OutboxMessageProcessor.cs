@@ -1,6 +1,6 @@
 using Core.DateTimeProvider;
-using Core.Logger;
 using Core.KafkaProducer;
+using Core.Logger;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Outbox;

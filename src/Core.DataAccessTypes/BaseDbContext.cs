@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Linq.Expressions;
-using Core.Outbox;
 using Core.DomainTypes;
 using Core.Infrastructure.Configuration;
 using Core.Infrastructure.Json;
+using Core.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -66,7 +66,7 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork, IConfigurationCont
         {
             await AddOutboxMessagesAsync(this as IOutbox, cancellationToken);
         }
-        
+
         return await base.SaveChangesAsync(cancellationToken);
     }
     private async Task AddOutboxMessagesAsync(IOutbox outboxContext, CancellationToken cancellationToken)

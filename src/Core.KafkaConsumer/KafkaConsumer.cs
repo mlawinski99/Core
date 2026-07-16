@@ -1,5 +1,5 @@
-using Core.Logger;
 using Confluent.Kafka;
+using Core.Logger;
 using Microsoft.Extensions.Options;
 
 namespace Core.KafkaConsumer;

@@ -1,6 +1,6 @@
-using Core.IntegrationTests.Shared.Infrastructure;
 using Core.Infrastructure.Json;
 using Core.InfrastructureTests.Kafka.Containers;
+using Core.IntegrationTests.Shared.Infrastructure;
 using Core.KafkaConsumer;
 using Core.KafkaProducer;
 using Core.Logger;

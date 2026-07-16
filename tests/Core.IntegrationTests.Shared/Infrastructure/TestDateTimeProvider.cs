@@ -1,5 +1,5 @@
-using Core.DateTimeProvider;
 using Core.DataAccessTypes;
+using Core.DateTimeProvider;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;
 

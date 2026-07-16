@@ -11,7 +11,7 @@ public class LoginUserCommandValidator : AbstractValidator<LoginUserCommand>
         RuleFor(x => x.Username)
             .NotEmpty()
             .WithMessage(ValidationMessages.UsernameRequired);
-        
+
         RuleFor(x => x.Password)
             .NotEmpty()
             .WithMessage(ValidationMessages.PasswordRequired);

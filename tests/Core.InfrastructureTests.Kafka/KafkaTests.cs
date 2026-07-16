@@ -108,7 +108,7 @@ public class KafkaTests
         }, cts.Token);
 
         await consumeTask;
-        
+
         // Assert
         receivedMessages.Count.Should().Be(expectedCount);
     }
@@ -140,7 +140,7 @@ public class KafkaTests
         }, cts.Token);
 
         await consumeTask;
-            
+
         // Assert
         receivedTopics.Should().Contain(topic1);
         receivedTopics.Should().Contain(topic2);

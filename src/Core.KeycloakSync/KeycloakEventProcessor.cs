@@ -46,7 +46,7 @@ public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IU
         }
     }
 
-    private async Task ProcessEvent(KeycloakAdminEvent ev,  string token)
+    private async Task ProcessEvent(KeycloakAdminEvent ev, string token)
     {
         var userId = ExtractUserId(ev.ResourcePath);
         if (userId == null)

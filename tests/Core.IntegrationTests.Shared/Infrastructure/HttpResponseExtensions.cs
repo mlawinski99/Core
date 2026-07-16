@@ -1,5 +1,5 @@
-using Core.Infrastructure.Json;
 using System.Text.Json;
+using Core.Infrastructure.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;

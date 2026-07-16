@@ -13,7 +13,7 @@ public class JsonSerializerTests
         public int Id { get; set; }
         public string Name { get; set; }
     }
-    
+
     [Fact]
     public void Serialize_ShouldReturnValidJson()
     {

@@ -1,6 +1,6 @@
-using Core.Infrastructure;
 using Core.DateTimeProvider;
 using Core.DomainTypes;
+using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
