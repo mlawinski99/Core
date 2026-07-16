@@ -11,12 +11,26 @@ steps:
       version: $(dotnetVersion)
 
   - task: DotNetCoreCLI@2
+    displayName: 'Restore'
+    inputs:
+      command: restore
+      projects: 'Core.slnx'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build'
+    inputs:
+      command: build
+      projects: 'Core.slnx'
+      arguments: '--configuration ${{ parameters.buildConfiguration }} --no-restore'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run Core Unit Tests'
     inputs:
       command: test
       projects: 'tests/Core.UnitTests.*/*.csproj'
       arguments: >
         --configuration ${{ parameters.buildConfiguration }}
+        --no-build
         --collect:"XPlat Code Coverage"
         -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       publishTestResults: true
@@ -30,6 +44,7 @@ steps:
         !tests/Core.IntegrationTests.Shared/*.csproj
       arguments: >
         --configuration ${{ parameters.buildConfiguration }}
+        --no-build
         --collect:"XPlat Code Coverage"
         -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       publishTestResults: true
@@ -41,6 +56,7 @@ steps:
       projects: 'tests/Core.InfrastructureTests.*/*.csproj'
       arguments: >
         --configuration ${{ parameters.buildConfiguration }}
+        --no-build
         --collect:"XPlat Code Coverage"
         -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       publishTestResults: true
