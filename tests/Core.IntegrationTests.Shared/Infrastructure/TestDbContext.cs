@@ -4,12 +4,13 @@ using Core.Identity.Domain;
 using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
+using Core.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;
 
-public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext
+public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext, IOutbox
 {
     public TestDbContext(DbContextOptions<TestDbContext> options, IJsonSerializer jsonSerializer, IEnumerable<IInterceptor> interceptors)
         : base(options, jsonSerializer, interceptors)
@@ -23,6 +24,8 @@ public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext
     public DbSet<SoftDeletableEntity> SoftDeletableEntities { get; set; }
     public DbSet<VersionableEntity> VersionableEntities { get; set; }
     public DbSet<EncryptableEntity> EncryptableEntities { get; set; }
+    public DbSet<TestEntity> TestEntities { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,5 +64,14 @@ public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext
             entity.ToTable("EncryptableEntities");
             entity.HasKey(e => e.Id);
         });
+
+        modelBuilder.Entity<TestEntity>(entity =>
+        {
+            entity.ToTable("TestEntities");
+            entity.HasKey(e => e.Id);
+            entity.Ignore(e => e.DomainEvents);
+        });
+
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
     }
 }
