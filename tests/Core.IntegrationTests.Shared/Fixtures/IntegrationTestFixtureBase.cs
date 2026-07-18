@@ -1,6 +1,3 @@
-using Core.DateTimeProvider;
-using Core.Infrastructure;
-using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

@@ -9,27 +9,19 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Core.DataAccessTypes;
 
-public abstract class BaseDbContext : DbContext, IUnitOfWork, IConfigurationContext
+public abstract class BaseDbContext(
+    DbContextOptions options,
+    IJsonSerializer jsonSerializer,
+    IEnumerable<IInterceptor> interceptors)
+    : DbContext(options), IUnitOfWork, IConfigurationContext
 {
     public DbSet<ConfigurationData> ConfigurationData { get; set; }
 
-    private readonly IJsonSerializer _jsonSerializer;
-    private readonly IEnumerable<IInterceptor> _interceptors;
-
-    protected BaseDbContext(DbContextOptions options,
-        IJsonSerializer jsonSerializer,
-        IEnumerable<IInterceptor> interceptors)
-        : base(options)
-    {
-        _jsonSerializer = jsonSerializer;
-        _interceptors = interceptors;
-    }
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        if (_interceptors.Any())
+        if (interceptors.Any())
         {
-            optionsBuilder.AddInterceptors(_interceptors);
+            optionsBuilder.AddInterceptors(interceptors);
             optionsBuilder.EnableServiceProviderCaching(false);
         }
 
@@ -60,17 +52,52 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork, IConfigurationCont
         }
     }
 
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        if (this is IOutbox)
+        var messages = AddOutboxMessages();
+
+        int result;
+        try
         {
-            await AddOutboxMessagesAsync(this as IOutbox, cancellationToken);
+            result = base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch
+        {
+            DetachOutboxMessages(messages);
+            throw;
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        ClearDomainEvents();
+
+        return result;
     }
-    private async Task AddOutboxMessagesAsync(IOutbox outboxContext, CancellationToken cancellationToken)
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
     {
+        var messages = AddOutboxMessages();
+
+        int result;
+        try
+        {
+            result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch
+        {
+            DetachOutboxMessages(messages);
+            throw;
+        }
+
+        ClearDomainEvents();
+
+        return result;
+    }
+
+    private List<OutboxMessage> AddOutboxMessages()
+    {
+        if (this is not IOutbox outboxContext)
+            return [];
+
         var domainEvents = ChangeTracker
             .Entries<AggregateRoot>()
             .SelectMany(x => x.Entity.DomainEvents)
@@ -78,24 +105,36 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork, IConfigurationCont
 
         var correlationId = Activity.Current?.TraceId.ToString();
 
+        var messages = new List<OutboxMessage>();
+
         foreach (var domainEvent in domainEvents)
         {
             var message = new OutboxMessage
             {
                 OccurredOnUtc = domainEvent.OccurredOnUtc,
                 Type = domainEvent.GetType().FullName!,
-                Content = _jsonSerializer.Serialize(domainEvent),
+                Content = jsonSerializer.Serialize(domainEvent),
                 CorrelationId = correlationId,
                 IsProcessed = false,
                 ProcessedOn = null
             };
 
             outboxContext.OutboxMessages.Add(message);
+            messages.Add(message);
         }
 
+        return messages;
+    }
+
+    private void DetachOutboxMessages(List<OutboxMessage> messages)
+    {
+        foreach (var message in messages)
+            Entry(message).State = EntityState.Detached;
+    }
+
+    private void ClearDomainEvents()
+    {
         foreach (var entry in ChangeTracker.Entries<AggregateRoot>())
             entry.Entity.ClearDomainEvents();
-
-        await Task.CompletedTask;
     }
 }
