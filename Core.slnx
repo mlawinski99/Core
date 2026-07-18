@@ -37,6 +37,8 @@
     <Project Path="tests/Core.UnitTests.BackgroundJobs/Core.UnitTests.BackgroundJobs.csproj" />
     <Project Path="tests/Core.UnitTests.CQRS.Decorators/Core.UnitTests.CQRS.Decorators.csproj" />
     <Project Path="tests/Core.UnitTests.CQRS/Core.UnitTests.CQRS.csproj" />
+    <Project Path="tests/Core.UnitTests.DomainTypes/Core.UnitTests.DomainTypes.csproj" />
+    <Project Path="tests/Core.UnitTests.StartupValidation/Core.UnitTests.StartupValidation.csproj" />
     <Project Path="tests/Core.IntegrationTests.Identity/Core.IntegrationTests.Identity.csproj" />
     <Project Path="tests/Core.UnitTests.Infrastructure/Core.UnitTests.Infrastructure.csproj" />
   </Folder>
