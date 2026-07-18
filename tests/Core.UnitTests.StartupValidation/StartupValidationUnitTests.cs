@@ -11,8 +11,33 @@ public class StartupValidationUnitTests
     public void Enumerations_ShouldNotDeclareDuplicateIdsOrNames()
     {
         // Arrange
-        var enumerationTypes = Directory.GetFiles(AppContext.BaseDirectory, "Core.*.dll")
-            .Select(Assembly.LoadFrom)
+        var assemblyFiles = Directory.GetFiles(AppContext.BaseDirectory, "Core.*.dll");
+        var assemblies = assemblyFiles.Select(Assembly.LoadFrom).ToList();
+
+        // Assert assembly discovery completeness (fail closed if discovery is broken)
+        // Find repository root by walking up from test binary location
+        var searchPath = new DirectoryInfo(AppContext.BaseDirectory);
+        while (searchPath != null && !Directory.Exists(Path.Combine(searchPath.FullName, "src")))
+        {
+            searchPath = searchPath.Parent;
+        }
+
+        if (searchPath != null)
+        {
+            var expectedProjectCount = Directory.GetFiles(
+                Path.Combine(searchPath.FullName, "src"),
+                "*.csproj",
+                SearchOption.AllDirectories).Length;
+
+            var discoveredCoreAssemblies = assemblies
+                .Where(a => a.GetName().Name?.StartsWith("Core.") == true)
+                .ToList();
+
+            discoveredCoreAssemblies.Should().HaveCountGreaterThanOrEqualTo(expectedProjectCount,
+                "assembly discovery must find all Core.* production assemblies");
+        }
+
+        var enumerationTypes = assemblies
             .SelectMany(a => a.GetTypes())
             .Where(t => t.IsAssignableTo(typeof(Enumeration)) && !t.IsAbstract);
 
