@@ -10,6 +10,7 @@ public class IntegrationTestFixtureBase
 
     public TestDateTimeProvider DateTimeProvider { get; } = new();
     public TestUserProvider UserProvider { get; } = new();
+    public TestEncryptor Encryptor { get; } = new();
 
     public void SetUtcNow(DateTime utcNow) => DateTimeProvider.UtcNow = utcNow;
     public void SetUserId(Guid? userId) => UserProvider.UserId = userId;
