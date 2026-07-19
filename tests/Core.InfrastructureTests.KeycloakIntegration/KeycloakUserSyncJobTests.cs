@@ -41,6 +41,8 @@ public class KeycloakUserSyncJobTests : IntegrationTestBase<KeycloakEventSyncTes
         var processor = new KeycloakEventProcessor<TestDbContext>(
             Db,
             keycloakService,
+            Fixture.Encryptor,
+            Fixture.DateTimeProvider,
             Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>());
 
         var job = new KeycloakUserSyncJob<TestDbContext>(importer, processor);

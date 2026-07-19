@@ -1,34 +1,33 @@
 using Core.DataAccessTypes;
+using Core.DateTimeProvider;
 using Core.Identity.Context;
 using Core.Identity.Domain;
+using Core.Infrastructure;
 using Core.Keycloak;
 using Core.Logger;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.KeycloakSync;
 
-public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IUserContext, IKeycloakEventsContext
+public class KeycloakEventProcessor<TContext>(
+    TContext db,
+    IKeycloakService keycloakService,
+    IEncryptor encryptor,
+    IDateTimeProvider dateTimeProvider,
+    IAppLogger<KeycloakEventProcessor<TContext>> logger)
+    where TContext : BaseDbContext, IUserContext, IKeycloakEventsContext
 {
-    private readonly TContext _db;
-    private readonly IKeycloakService _keycloakService;
-    private readonly IAppLogger<KeycloakEventProcessor<TContext>> _logger;
-
-    public KeycloakEventProcessor(TContext db, IKeycloakService keycloakService,
-        IAppLogger<KeycloakEventProcessor<TContext>> logger)
-    {
-        _db = db;
-        _keycloakService = keycloakService;
-        _logger = logger;
-    }
+    private const string AnonymizedValue = "User Deleted";
+    private readonly string _encryptedAnonymizedValue = encryptor.Encrypt(AnonymizedValue);
 
     public async Task Run()
     {
-        var events = await _db.KeycloakAdminEvents
+        var events = await db.KeycloakAdminEvents
             .Where(e => !e.IsProcessed && e.ResourceType == "USER")
             .OrderBy(e => e.Time)
             .ToListAsync();
 
-        var token = await _keycloakService.GetToken();
+        var token = await keycloakService.GetToken();
         // @TODO batch process
         foreach (var @event in events)
         {
@@ -36,11 +35,11 @@ public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IU
             {
                 await ProcessEvent(@event, token);
                 @event.IsProcessed = true;
-                await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message, ex);
+                logger.LogError(ex.Message, ex);
                 continue;
             }
         }
@@ -65,11 +64,11 @@ public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IU
 
     private async Task SyncUser(string keycloakUserId, string token)
     {
-        var keycloakUser = await _keycloakService.GetUser(token, keycloakUserId);
+        var keycloakUser = await keycloakService.GetUser(token, keycloakUserId);
         if (keycloakUser == null)
             return;
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(keycloakUserId));
+        var user = await db.Users.FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(keycloakUserId));
 
         if (user == null)
         {
@@ -80,7 +79,7 @@ public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IU
                 Email = keycloakUser.Email
             };
 
-            _db.Users.Add(user);
+            db.Users.Add(user);
         }
         else
         {
@@ -91,9 +90,15 @@ public class KeycloakEventProcessor<TContext> where TContext : BaseDbContext, IU
 
     private async Task DeleteUser(string keycloakUserId)
     {
-        await _db.Users
+        // @TODO if batch process implemented we can preload userlist and update it without ExecuteUpdate async, temporary to prevent additional query
+        await db.Users
             .Where(x => x.KeycloakId == Guid.Parse(keycloakUserId))
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.IsDeleted, true)
+                .SetProperty(u => u.DateDeletedUtc, dateTimeProvider.UtcNow)
+                .SetProperty(u => u.DateModifiedUtc, dateTimeProvider.UtcNow)
+                .SetProperty(u => u.UserName, _encryptedAnonymizedValue)
+                .SetProperty(u => u.Email, _encryptedAnonymizedValue));
     }
 
     private string ExtractUserId(string resourcePath)

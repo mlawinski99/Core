@@ -2,7 +2,6 @@ using Core.Identity.Domain;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
-using Core.Keycloak;
 using Core.KeycloakSync;
 using Core.Logger;
 using FluentAssertions;
@@ -37,7 +36,8 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
 
         var keycloakService = Fixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
+            Fixture.DateTimeProvider, logger);
 
         // Act
         await processor.Run();
@@ -78,7 +78,8 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
 
         var keycloakService = Fixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
+            Fixture.DateTimeProvider, logger);
 
         // Act
         await processor.Run();
@@ -91,9 +92,11 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
     }
 
     [Fact]
-    public async Task KeycloakEventProcessor_WithDeleteUserEvent_ShouldDeleteUser()
+    public async Task KeycloakEventProcessor_WithDeleteUserEvent_ShouldSoftDeleteAndAnonymizeUser()
     {
         // Arrange
+        var anonymizedValue = "User Deleted";
+
         var existingUser = new User
         {
             Id = Guid.NewGuid(),
@@ -116,14 +119,28 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
 
         var keycloakService = Fixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
+            Fixture.DateTimeProvider, logger);
 
         // Act
         await processor.Run();
 
         // Assert
-        var user = await Db.Users.FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
+        var user = await Db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
         user.Should().BeNull();
+
+        var deletedUser = await Db.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
+        deletedUser.Should().NotBeNull();
+        deletedUser.IsDeleted.Should().BeTrue();
+        deletedUser.DateDeletedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
+        deletedUser.DateModifiedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
+        deletedUser.UserName.Should().Be(Fixture.Encryptor.Encrypt(anonymizedValue));
+        deletedUser.Email.Should().Be(Fixture.Encryptor.Encrypt(anonymizedValue));
 
         var processedEvent = await Db.KeycloakAdminEvents.FirstAsync();
         processedEvent.IsProcessed.Should().BeTrue();
@@ -135,7 +152,8 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
         // Arrange
         var keycloakService = Fixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
+            Fixture.DateTimeProvider, logger);
 
         // Act
         var act = () => processor.Run();
