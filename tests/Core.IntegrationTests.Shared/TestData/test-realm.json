@@ -40,6 +40,11 @@
       "enabled": true
     },
     {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "username": "testUserNoEmail",
+      "enabled": true
+    },
+    {
       "username": "service-account-test-client",
       "enabled": true,
       "serviceAccountClientId": "test-client",

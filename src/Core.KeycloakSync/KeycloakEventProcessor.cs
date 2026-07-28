@@ -39,8 +39,15 @@ public class KeycloakEventProcessor<TContext>(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex.Message, ex);
-                continue;
+                logger.LogError(ex, "Failed to process KeycloakAdminEvent {EventId} {OperationType} {ResourcePath}",
+                    @event.Id, @event.OperationType, @event.ResourcePath);
+
+                var entitiesToDetach = db.ChangeTracker.Entries()
+                    .Where(e => e.State is not EntityState.Unchanged)
+                    .ToList();
+
+                foreach (var entry in entitiesToDetach)
+                    entry.State = EntityState.Detached;
             }
         }
     }
