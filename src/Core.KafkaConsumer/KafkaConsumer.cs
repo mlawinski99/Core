@@ -7,7 +7,6 @@ namespace Core.KafkaConsumer;
 public class KafkaConsumer : IConsumer, IDisposable
 {
     private readonly IAppLogger<KafkaConsumer> _logger;
-    private readonly HashSet<string> _allowedTopics;
     private readonly IConsumer<string, string> _consumer;
 
     public KafkaConsumer(IOptions<KafkaConsumerConfiguration> configuration,
@@ -15,7 +14,7 @@ public class KafkaConsumer : IConsumer, IDisposable
     {
         _logger = logger;
         var kafkaConfig = configuration.Value;
-        _allowedTopics = new HashSet<string>(kafkaConfig.AllowedTopics);
+        var allowedTopics = new HashSet<string>(kafkaConfig.AllowedTopics);
 
         var config = new ConsumerConfig
         {
@@ -28,7 +27,7 @@ public class KafkaConsumer : IConsumer, IDisposable
         };
         _consumer = new ConsumerBuilder<string, string>(config).Build();
 
-        _consumer.Subscribe(_allowedTopics.ToList());
+        _consumer.Subscribe(allowedTopics.ToList());
     }
 
     public async Task StartAsync(
@@ -37,30 +36,37 @@ public class KafkaConsumer : IConsumer, IDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            ConsumeResult<string, string> result;
+
             try
             {
-                var result = _consumer.Consume(cancellationToken);
-
-                if (!_allowedTopics.Contains(result.Topic))
-                    continue;
-
-                _logger.LogInformation("Received message from topic {Topic} with key {Key}", result.Topic, result.Message.Key);
-                await handler(result.Topic, result.Message.Value);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (ConsumeException ex)
-            {
-                _logger.LogError(ex, "Kafka consume error: {Reason}", ex.Error.Reason);
+                result = _consumer.Consume(cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Message handler failed; message is skipped");
+                _logger.LogError(ex, "Kafka consume failed");
+                throw;
             }
+
+            _logger.LogInformation(
+                "Received message from topic {Topic} partition {Partition} offset {Offset} with key {Key}",
+                result.Topic, result.Partition.Value, result.Offset.Value, result.Message.Key);
+
+            await handler(result.Topic, result.Message.Value);
         }
+
+        _logger.LogInformation("Kafka consumer stopping");
     }
 
-    public void Dispose() => _consumer.Close();
+        public void Dispose()
+    {
+        try
+        {
+            _consumer.Close();
+        }
+        finally
+        {
+            _consumer.Dispose();
+        }
+    }
 }
