@@ -35,3 +35,19 @@ public class LoggingRequestDecorator<TRequest, TResult>(
         return result;
     }
 }
+
+public sealed class LoggingCommandDecorator<TCommand, TResult>(
+    IRequestHandler<TCommand, TResult> requestHandler,
+    IAppLogger<LoggingRequestDecorator<TCommand, TResult>> logger)
+    : LoggingRequestDecorator<TCommand, TResult>(requestHandler, logger),
+        ICommandHandler<TCommand, TResult>
+    where TCommand : ICommand<TResult>
+    where TResult : IResult<TResult>;
+
+public sealed class LoggingQueryDecorator<TQuery, TResult>(
+    IRequestHandler<TQuery, TResult> requestHandler,
+    IAppLogger<LoggingRequestDecorator<TQuery, TResult>> logger)
+    : LoggingRequestDecorator<TQuery, TResult>(requestHandler, logger),
+        IQueryHandler<TQuery, TResult>
+    where TQuery : IQuery<TResult>
+    where TResult : IResult<TResult>;

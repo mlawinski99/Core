@@ -36,3 +36,19 @@ public class ExceptionHandlingRequestDecorator<TRequest, TResult>(
         }
     }
 }
+
+public sealed class ExceptionHandlingCommandDecorator<TCommand, TResult>(
+    IRequestHandler<TCommand, TResult> requestHandler,
+    IAppLogger<ExceptionHandlingRequestDecorator<TCommand, TResult>> logger)
+    : ExceptionHandlingRequestDecorator<TCommand, TResult>(requestHandler, logger),
+        ICommandHandler<TCommand, TResult>
+    where TCommand : ICommand<TResult>
+    where TResult : IResult<TResult>;
+
+public sealed class ExceptionHandlingQueryDecorator<TQuery, TResult>(
+    IRequestHandler<TQuery, TResult> requestHandler,
+    IAppLogger<ExceptionHandlingRequestDecorator<TQuery, TResult>> logger)
+    : ExceptionHandlingRequestDecorator<TQuery, TResult>(requestHandler, logger),
+        IQueryHandler<TQuery, TResult>
+    where TQuery : IQuery<TResult>
+    where TResult : IResult<TResult>;
