@@ -7,14 +7,20 @@ public static class CqrsDependencyInstaller
 {
     public static IServiceCollection AddCqrs(this IServiceCollection services, Assembly assembly)
     {
-        services.Scan(scan => scan
-            .FromAssemblies(assembly)
-            .AddClasses(classes => classes.AssignableTo(typeof(IRequestHandler<,>)))
-            .AsImplementedInterfaces()
-            .WithScopedLifetime());
+        services.AddHandlers(assembly, typeof(ICommandHandler<,>));
+        services.AddHandlers(assembly, typeof(IQueryHandler<,>));
 
         services.AddSingleton<IRequestDispatcher, RequestDispatcher>();
 
         return services;
+    }
+
+    private static void AddHandlers(this IServiceCollection services, Assembly assembly, Type handlerType)
+    {
+        services.Scan(scan => scan
+            .FromAssemblies(assembly)
+            .AddClasses(classes => classes.AssignableTo(handlerType).Where(t => !t.IsGenericTypeDefinition))
+            .AsImplementedInterfaces(t => t.IsGenericType && t.GetGenericTypeDefinition() == handlerType)
+            .WithScopedLifetime());
     }
 }

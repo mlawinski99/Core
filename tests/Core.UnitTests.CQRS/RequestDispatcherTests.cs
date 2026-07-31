@@ -12,7 +12,7 @@ public class RequestDispatcherTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<IRequestHandler<TestCommand, string>, TestCommandHandler>();
+        services.AddScoped<ICommandHandler<TestCommand, string>, TestCommandHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 
@@ -30,7 +30,7 @@ public class RequestDispatcherTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<IRequestHandler<TestQuery, int>, TestQueryHandler>();
+        services.AddScoped<IQueryHandler<TestQuery, int>, TestQueryHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 
@@ -61,11 +61,28 @@ public class RequestDispatcherTests
     }
 
     [Fact]
+    public async Task Dispatch_WithRequestThatIsNeitherCommandNorQuery_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var serviceProvider = services.BuildServiceProvider();
+        var dispatcher = new RequestDispatcher(serviceProvider);
+
+        var request = new UnknownRequest();
+
+        // Act
+        var act = () => dispatcher.Dispatch(request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task Dispatch_ShouldPassCancellationToken()
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddScoped<IRequestHandler<CancellableCommand, bool>, CancellableCommandHandler>();
+        services.AddScoped<ICommandHandler<CancellableCommand, bool>, CancellableCommandHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var dispatcher = new RequestDispatcher(serviceProvider);
 
