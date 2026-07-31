@@ -26,3 +26,19 @@ public class ValidationRequestDecorator<TRequest, TResult>(
         return await requestHandler.Handle(request, cancellationToken);
     }
 }
+
+public sealed class ValidationCommandDecorator<TCommand, TResult>(
+    IRequestHandler<TCommand, TResult> requestHandler,
+    IEnumerable<IValidator<TCommand>> validators)
+    : ValidationRequestDecorator<TCommand, TResult>(requestHandler, validators),
+        ICommandHandler<TCommand, TResult>
+    where TCommand : ICommand<TResult>
+    where TResult : IResult<TResult>;
+
+public sealed class ValidationQueryDecorator<TQuery, TResult>(
+    IRequestHandler<TQuery, TResult> requestHandler,
+    IEnumerable<IValidator<TQuery>> validators)
+    : ValidationRequestDecorator<TQuery, TResult>(requestHandler, validators),
+        IQueryHandler<TQuery, TResult>
+    where TQuery : IQuery<TResult>
+    where TResult : IResult<TResult>;
