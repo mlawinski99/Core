@@ -78,6 +78,46 @@ public class RequestDispatcherTests
     }
 
     [Fact]
+    public async Task Dispatch_ShouldResolveHandlerFromCallingScope()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddScoped<ScopeMarker>();
+        services.AddCqrs(typeof(ScopedCommandHandler).Assembly);
+        var serviceProvider = services.BuildServiceProvider();
+
+        using var scope = serviceProvider.CreateScope();
+        var expected = scope.ServiceProvider.GetRequiredService<ScopeMarker>().Id;
+        var dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+
+        // Act
+        var actual = await dispatcher.Dispatch(new ScopedCommand());
+
+        // Assert
+        actual.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task Dispatch_WithNonPublicHandler_ShouldResolveHandlerAndReturnResult()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCqrs(typeof(InternalHandlerCommandHandler).Assembly);
+        var serviceProvider = services.BuildServiceProvider();
+
+        using var scope = serviceProvider.CreateScope();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+
+        var command = new InternalHandlerCommand { Value = "test" };
+
+        // Act
+        var result = await dispatcher.Dispatch(command);
+
+        // Assert
+        result.Should().Be(command.Value);
+    }
+
+    [Fact]
     public async Task Dispatch_ShouldPassCancellationToken()
     {
         // Arrange
