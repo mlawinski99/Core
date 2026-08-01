@@ -10,7 +10,7 @@ public static class CqrsDependencyInstaller
         services.AddHandlers(assembly, typeof(ICommandHandler<,>));
         services.AddHandlers(assembly, typeof(IQueryHandler<,>));
 
-        services.AddSingleton<IRequestDispatcher, RequestDispatcher>();
+        services.AddScoped<IRequestDispatcher, RequestDispatcher>();
 
         return services;
     }
@@ -19,7 +19,7 @@ public static class CqrsDependencyInstaller
     {
         services.Scan(scan => scan
             .FromAssemblies(assembly)
-            .AddClasses(classes => classes.AssignableTo(handlerType).Where(t => !t.IsGenericTypeDefinition))
+            .AddClasses(classes => classes.AssignableTo(handlerType).Where(t => !t.IsGenericTypeDefinition), publicOnly: false)
             .AsImplementedInterfaces(t => t.IsGenericType && t.GetGenericTypeDefinition() == handlerType)
             .WithScopedLifetime());
     }
