@@ -10,7 +10,8 @@ namespace Core.Identity.Users.Commands;
 
 public class RegisterUser : ICommandHandler<RegisterUser.RegisterUserCommand, Result>
 {
-    public record RegisterUserCommand(string Username, string Password, string ConfirmPassword, string Email) : ICommand<Result>;
+    public record RegisterUserCommand(string Username, string Password, string ConfirmPassword, string Email)
+        : INonTransactionalCommand<Result>;
 
     private readonly IKeycloakService _keycloakService;
     private readonly IAppLogger<RegisterUser> _logger;

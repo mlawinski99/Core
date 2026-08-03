@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\Core.CQRS.Decorators\Core.CQRS.Decorators.csproj" />
         <ProjectReference Include="..\..\src\Core.Identity\Core.Identity.csproj" />
         <ProjectReference Include="..\..\src\Core.DateTimeProvider\Core.DateTimeProvider.csproj" />
         <ProjectReference Include="..\..\src\Core.Keycloak\Core.Keycloak.csproj" />

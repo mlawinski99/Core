@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using Core.CQRS;
 using Core.CQRS.Decorators;
+using Core.DataAccessTypes;
 using Core.Identity.Users.Commands;
 using Core.Identity.Web;
 using Core.Infrastructure;
@@ -40,6 +41,7 @@ public class UsersApiFixture : IAsyncLifetime
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IUserProvider, UserProvider>();
         builder.Services.AddSingleton(KeycloakService);
+        builder.Services.AddScoped<IUnitOfWork, NoDbUnitOfWork>();
         builder.Services.AddCqrsDecorators();
 
         builder.Services.AddAuthentication(TestAuthHandler.SchemeName)

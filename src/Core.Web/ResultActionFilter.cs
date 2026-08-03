@@ -8,7 +8,7 @@ public class ResultActionFilter : IAsyncResultFilter
 {
     public async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
     {
-        if (context.Result is ObjectResult objectResult && objectResult.Value is Result result)
+        if (context.Result is ObjectResult objectResult && objectResult.Value is IResultState result)
         {
             objectResult.StatusCode = (int)result.Code;
         }

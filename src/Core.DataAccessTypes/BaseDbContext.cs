@@ -4,6 +4,7 @@ using Core.DomainTypes;
 using Core.Infrastructure.Configuration;
 using Core.Infrastructure.Json;
 using Core.Outbox;
+using Core.ResultPattern;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -91,6 +92,66 @@ public abstract class BaseDbContext(
         ClearDomainEvents();
 
         return result;
+    }
+
+    private IResultState? _firstFailure;
+
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default) where T : IResult<T>
+    {
+        //multiple commands in 1 scope, needed
+        if (Database.CurrentTransaction is not null)
+        {
+            T nested;
+            try
+            {
+                nested = await operation(cancellationToken);
+            }
+            catch
+            {
+                _firstFailure ??= Result.InternalError();
+                throw;
+            }
+
+            if (nested is not { IsSuccess: true })
+                _firstFailure ??= nested;
+
+            return nested;
+        }
+
+        return await Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+        {
+            _firstFailure = null;
+
+            await using var transaction = await Database.BeginTransactionAsync(ct);
+
+            T result;
+            try
+            {
+                result = await operation(ct);
+            }
+            catch
+            {
+                ChangeTracker.Clear();
+                throw;
+            }
+
+            if (result is { IsSuccess: true } && _firstFailure is null)
+            {
+                await transaction.CommitAsync(ct);
+
+                return result;
+            }
+
+            await transaction.RollbackAsync(ct);
+            ChangeTracker.Clear();
+
+            // 1st command can return success, but one in chain failed
+            return result is { IsSuccess: true }
+                ? T.Failure(_firstFailure!.Code, _firstFailure.Error)
+                : result;
+        }, cancellationToken);
     }
 
     private List<OutboxMessage> AddOutboxMessages()

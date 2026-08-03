@@ -11,7 +11,7 @@ namespace Core.Identity.Users.Commands;
 
 public class LogoutUser : ICommandHandler<LogoutUser.LogoutUserCommand, Result>
 {
-    public record LogoutUserCommand(string RefreshToken) : ICommand<Result>;
+    public record LogoutUserCommand(string RefreshToken) : INonTransactionalCommand<Result>;
 
     private readonly IKeycloakService _keycloakService;
     private readonly IAppLogger<LogoutUser> _logger;
