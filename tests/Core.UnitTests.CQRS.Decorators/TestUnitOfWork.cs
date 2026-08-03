@@ -5,6 +5,14 @@ namespace Core.UnitTests.CQRS.Decorators;
 
 public class TestUnitOfWork : IUnitOfWork
 {
+    public bool HasActiveTransaction { get; set; }
+
+    public void EnsureNoActiveTransaction(string commandName)
+    {
+        if (HasActiveTransaction)
+            throw new InvalidOperationException(commandName);
+    }
+
     public bool TransactionUsed { get; private set; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>

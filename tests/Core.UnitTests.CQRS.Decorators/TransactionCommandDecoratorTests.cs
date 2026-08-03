@@ -26,6 +26,20 @@ public class TransactionCommandDecoratorTests
     }
 
     [Fact]
+    public async Task Handle_WhenNonTransactionalCommandHasActiveTransaction_ShouldThrow()
+    {
+        _unitOfWork.HasActiveTransaction = true;
+        var handler = Substitute.For<IRequestHandler<NonTransactionalTestCommand, Result>>();
+        var decorator =
+            new TransactionCommandDecorator<NonTransactionalTestCommand, Result>(handler, _unitOfWork);
+
+        var act = () => decorator.Handle(new NonTransactionalTestCommand("test"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        await handler.DidNotReceive().Handle(Arg.Any<NonTransactionalTestCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenCommandIsNonTransactional_ShouldBypassUnitOfWork()
     {
         var handler = Substitute.For<IRequestHandler<NonTransactionalTestCommand, Result>>();

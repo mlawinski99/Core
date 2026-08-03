@@ -16,7 +16,11 @@ public sealed class TransactionCommandDecorator<TCommand, TResult>(
     public Task<TResult> Handle(TCommand request, CancellationToken cancellationToken)
     {
         if (SkipTransaction)
+        {
+            unitOfWork.EnsureNoActiveTransaction(typeof(TCommand).Name);
+
             return requestHandler.Handle(request, cancellationToken);
+        }
 
         return unitOfWork.ExecuteInTransactionAsync(
             ct => requestHandler.Handle(request, ct),

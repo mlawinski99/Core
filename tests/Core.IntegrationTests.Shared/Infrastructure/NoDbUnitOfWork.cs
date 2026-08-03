@@ -6,6 +6,10 @@ namespace Core.IntegrationTests.Shared.Infrastructure;
 // for fixtures with no DbContext
 public class NoDbUnitOfWork : IUnitOfWork
 {
+    public void EnsureNoActiveTransaction(string commandName)
+    {
+    }
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(0);
