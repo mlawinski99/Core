@@ -26,11 +26,8 @@ public class LoggingRequestDecorator<TRequest, TResult>(
         var result = await requestHandler.Handle(request, cancellationToken);
         sw.Stop();
 
-        if (result is Result r)
-        {
-            activity?.SetTag("cqrs.result_code", r.Code.ToString());
-            logger.LogInformation("{Handler} completed with {ResultCode} in {ElapsedMs}ms", handlerName, r.Code, sw.ElapsedMilliseconds);
-        }
+        activity?.SetTag("cqrs.result_code", result?.Code.ToString());
+        logger.LogInformation("{Handler} completed with {ResultCode} in {ElapsedMs}ms", handlerName, result?.Code, sw.ElapsedMilliseconds);
 
         return result;
     }

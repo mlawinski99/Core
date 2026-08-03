@@ -8,7 +8,8 @@ namespace Core.Identity.Users.Commands;
 
 public class LoginUser : ICommandHandler<LoginUser.LoginUserCommand, Result<KeycloakTokenResponse>>
 {
-    public record LoginUserCommand(string Username, string Password) : ICommand<Result<KeycloakTokenResponse>>;
+    public record LoginUserCommand(string Username, string Password)
+        : INonTransactionalCommand<Result<KeycloakTokenResponse>>;
 
     private readonly IKeycloakService _keycloakService;
 

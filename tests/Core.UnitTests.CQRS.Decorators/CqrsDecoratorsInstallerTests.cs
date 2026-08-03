@@ -1,5 +1,6 @@
 using Core.CQRS;
 using Core.CQRS.Decorators;
+using Core.DataAccessTypes;
 using Core.Logger;
 using Core.ResultPattern;
 using FluentAssertions;
@@ -34,6 +35,7 @@ public class CqrsDecoratorsInstallerTests
     {
         var services = new ServiceCollection();
         services.AddSingleton(typeof(IAppLogger<>), typeof(TestLogger<>));
+        services.AddScoped<IUnitOfWork, TestUnitOfWork>();
         services.AddCqrs(typeof(TestCommandHandler).Assembly);
         services.AddCqrsDecorators();
 

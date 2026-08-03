@@ -13,7 +13,7 @@ public class KeycloakEventSyncTestFixture : IntegrationTestFixtureBase, IAsyncLi
     private readonly PostgresContainerFixture _postgresFixture = new("synctestdb");
     private readonly IHttpClientFactory _httpClientFactory = new TestHttpClientFactory();
 
-    protected override string PostgresConnectionString => _postgresFixture.ConnectionString;
+    public override string PostgresConnectionString => _postgresFixture.ConnectionString;
 
     public async Task InitializeAsync()
     {

@@ -16,4 +16,12 @@ public static class DataAccessTypesDependencyInstaller
 
         return services;
     }
+
+    public static IServiceCollection AddUnitOfWork<TContext>(this IServiceCollection services)
+        where TContext : BaseDbContext
+    {
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<TContext>());
+
+        return services;
+    }
 }

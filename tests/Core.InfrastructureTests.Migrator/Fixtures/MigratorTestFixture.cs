@@ -8,7 +8,7 @@ public class MigratorTestFixture : IntegrationTestFixtureBase, IAsyncLifetime
 {
     private readonly PostgresContainerFixture _postgresFixture = new("migratortestdb");
 
-    protected override string PostgresConnectionString => _postgresFixture.ConnectionString;
+    public override string PostgresConnectionString => _postgresFixture.ConnectionString;
 
     public string ConnectionString => PostgresConnectionString;
 

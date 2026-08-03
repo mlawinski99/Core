@@ -4,6 +4,7 @@
       <ProjectReference Include="..\Core.DomainTypes\Core.DomainTypes.csproj" />
       <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Core.Outbox\Core.Outbox.csproj" />
+      <ProjectReference Include="..\Core.ResultPattern\Core.ResultPattern.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -14,6 +14,7 @@ public static class CqrsDecoratorsDependencyInstaller
 
     private static void RegisterCommandDecorators(this IServiceCollection services)
     {
+        services.TryDecorate(typeof(ICommandHandler<,>), typeof(TransactionCommandDecorator<,>));
         services.TryDecorate(typeof(ICommandHandler<,>), typeof(ValidationCommandDecorator<,>));
         services.TryDecorate(typeof(ICommandHandler<,>), typeof(ExceptionHandlingCommandDecorator<,>));
         services.TryDecorate(typeof(ICommandHandler<,>), typeof(LoggingCommandDecorator<,>));
