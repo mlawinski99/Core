@@ -71,10 +71,47 @@ public class UnitOfWorkTransactionTests(IntegrationTestFixture fixture)
         entityA.Should().BeNull();
         entityB.Should().BeNull();
     }
+
+    [Fact]
+    public async Task Dispatch_WhenNonTransactionalCommandRunsUnderTransaction_ShouldRollBackWholeChain()
+    {
+        // Arrange
+        var nonTransactional = new NonTransactionalTestCommand(new TestEntity { Name = "NonTransactional" });
+        var commandA = new TestCommandA(new TestEntity { Name = "A" }, NestedNonTransactional: nonTransactional);
+
+        // Act
+        var result = await Dispatcher.Dispatch(commandA);
+
+        // Assert
+        var entityA = await Db.TestEntities.SingleOrDefaultAsync(x => x.Id == commandA.Entity.Id);
+        var entityNonTransactional = await Db.TestEntities
+            .SingleOrDefaultAsync(x => x.Id == nonTransactional.Entity.Id);
+
+        result.Code.Should().Be(ResultCode.InternalError);
+        entityNonTransactional.Should().BeNull();
+        entityA.Should().BeNull();
+    }
 }
 
-public record TestCommandA(TestEntity Entity, bool Succeed = true, TestCommandB? Nested = null)
-    : ICommand<Result>;
+public record TestCommandA(
+    TestEntity Entity,
+    bool Succeed = true,
+    TestCommandB? Nested = null,
+    NonTransactionalTestCommand? NestedNonTransactional = null) : ICommand<Result>;
+
+public record NonTransactionalTestCommand(TestEntity Entity) : INonTransactionalCommand<Result>;
+
+public class NonTransactionalTestCommandHandler(TestDbContext db)
+    : ICommandHandler<NonTransactionalTestCommand, Result>
+{
+    public async Task<Result> Handle(NonTransactionalTestCommand command, CancellationToken cancellationToken)
+    {
+        db.TestEntities.Add(command.Entity);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Result.Success;
+    }
+}
 
 public class TestCommandAHandler(TestDbContext db, IRequestDispatcher dispatcher)
     : ICommandHandler<TestCommandA, Result>
@@ -84,6 +121,11 @@ public class TestCommandAHandler(TestDbContext db, IRequestDispatcher dispatcher
         if (command.Nested is not null)
         {
             await dispatcher.Dispatch(command.Nested, cancellationToken);
+        }
+
+        if (command.NestedNonTransactional is not null)
+        {
+            await dispatcher.Dispatch(command.NestedNonTransactional, cancellationToken);
         }
 
         db.TestEntities.Add(command.Entity);

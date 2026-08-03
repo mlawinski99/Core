@@ -4,6 +4,8 @@ namespace Core.DataAccessTypes;
 
 public interface IUnitOfWork
 {
+    void EnsureNoActiveTransaction(string commandName);
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task<T> ExecuteInTransactionAsync<T>(

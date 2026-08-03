@@ -96,6 +96,17 @@ public abstract class BaseDbContext(
 
     private IResultState? _firstFailure;
 
+    public void EnsureNoActiveTransaction(string commandName)
+    {
+        if (Database.CurrentTransaction is null)
+            return;
+
+        _firstFailure ??= Result.InternalError();
+
+        throw new InvalidOperationException(
+            $"{commandName} is non-transactional and cannot run inside an active transaction.");
+    }
+
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken = default) where T : IResult<T>
