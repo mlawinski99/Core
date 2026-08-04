@@ -7,7 +7,7 @@ public class IntegrationTestFixture : IntegrationTestFixtureBase, IAsyncLifetime
 {
     private readonly PostgresContainerFixture _postgresFixture = new();
 
-    protected override string PostgresConnectionString => _postgresFixture.ConnectionString;
+    public override string PostgresConnectionString => _postgresFixture.ConnectionString;
 
     public async Task InitializeAsync()
     {

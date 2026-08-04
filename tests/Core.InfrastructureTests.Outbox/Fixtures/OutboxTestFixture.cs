@@ -9,7 +9,7 @@ public class OutboxTestFixture : IntegrationTestFixtureBase, IAsyncLifetime
 {
     private readonly PostgresContainerFixture _postgresFixture = new("outboxtestdb");
 
-    protected override string PostgresConnectionString => _postgresFixture.ConnectionString;
+    public override string PostgresConnectionString => _postgresFixture.ConnectionString;
 
     public TestOutboxDbContext CreateOutboxDbContext()
     {

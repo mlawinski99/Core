@@ -6,7 +6,7 @@ namespace Core.IntegrationTests.Shared.Fixtures;
 
 public class IntegrationTestFixtureBase
 {
-    protected virtual string PostgresConnectionString { get; set; } = string.Empty;
+    public virtual string PostgresConnectionString { get; set; } = string.Empty;
 
     public TestDateTimeProvider DateTimeProvider { get; } = new();
     public TestUserProvider UserProvider { get; } = new();

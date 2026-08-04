@@ -1,7 +1,9 @@
 namespace Core.ResultPattern;
 
-public interface IResult<T> where T : IResult<T>
+public interface IResult<T> : IResultState where T : IResult<T>
 {
+    static abstract T Failure(ResultCode code, string? error);
+
     static abstract T BadRequest(string error);
     static abstract T Unauthorized(string error);
     static abstract T Forbidden(string error);

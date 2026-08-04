@@ -41,5 +41,6 @@
     <Project Path="tests/Core.UnitTests.StartupValidation/Core.UnitTests.StartupValidation.csproj" />
     <Project Path="tests/Core.IntegrationTests.Identity/Core.IntegrationTests.Identity.csproj" />
     <Project Path="tests/Core.UnitTests.Infrastructure/Core.UnitTests.Infrastructure.csproj" />
+    <Project Path="tests/Core.UnitTests.ResultPattern/Core.UnitTests.ResultPattern.csproj" />
   </Folder>
 </Solution>

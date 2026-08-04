@@ -4,6 +4,7 @@ using Core.DomainTypes;
 using Core.Infrastructure.Configuration;
 using Core.Infrastructure.Json;
 using Core.Outbox;
+using Core.ResultPattern;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -91,6 +92,85 @@ public abstract class BaseDbContext(
         ClearDomainEvents();
 
         return result;
+    }
+
+    private IResultState? _firstFailure;
+
+    public void EnsureNoActiveTransaction(string commandName)
+    {
+        if (Database.CurrentTransaction is null)
+            return;
+
+        _firstFailure ??= Result.InternalError();
+
+        throw new InvalidOperationException(
+            $"{commandName} is non-transactional and cannot run inside an active transaction.");
+    }
+
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default) where T : IResult<T>
+    {
+        //multiple commands in 1 scope, needed
+        if (Database.CurrentTransaction is not null)
+        {
+            T nested;
+            try
+            {
+                nested = await operation(cancellationToken);
+            }
+            catch
+            {
+                _firstFailure ??= Result.InternalError();
+                throw;
+            }
+
+            if (nested is not { IsSuccess: true })
+                _firstFailure ??= nested;
+
+            return nested;
+        }
+
+        _firstFailure = null;
+
+        // @TODO retry strategy
+        await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+
+        T result;
+        try
+        {
+            result = await operation(cancellationToken);
+        }
+        catch
+        {
+            // @TODO retry strategy - reset state between attempts
+            ChangeTracker.Clear();
+            throw;
+        }
+
+        try
+        {
+            if (result is { IsSuccess: true } && _firstFailure is null)
+            {
+                // @TODO retry strategy
+                await transaction.CommitAsync(cancellationToken);
+
+                return result;
+            }
+
+            await transaction.RollbackAsync(cancellationToken);
+            ChangeTracker.Clear();
+        }
+        catch
+        {
+            ChangeTracker.Clear();
+            throw;
+        }
+
+        // 1st command can return success, but one in chain failed
+        return result is { IsSuccess: true }
+            ? T.Failure(_firstFailure!.Code, _firstFailure.Error)
+            : result;
     }
 
     private List<OutboxMessage> AddOutboxMessages()
