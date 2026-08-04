@@ -131,38 +131,46 @@ public abstract class BaseDbContext(
             return nested;
         }
 
-        return await Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+        _firstFailure = null;
+
+        // @TODO retry strategy
+        await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+
+        T result;
+        try
         {
-            _firstFailure = null;
+            result = await operation(cancellationToken);
+        }
+        catch
+        {
+            // @TODO retry strategy - reset state between attempts
+            ChangeTracker.Clear();
+            throw;
+        }
 
-            await using var transaction = await Database.BeginTransactionAsync(ct);
-
-            T result;
-            try
-            {
-                result = await operation(ct);
-            }
-            catch
-            {
-                ChangeTracker.Clear();
-                throw;
-            }
-
+        try
+        {
             if (result is { IsSuccess: true } && _firstFailure is null)
             {
-                await transaction.CommitAsync(ct);
+                // @TODO retry strategy
+                await transaction.CommitAsync(cancellationToken);
 
                 return result;
             }
 
-            await transaction.RollbackAsync(ct);
+            await transaction.RollbackAsync(cancellationToken);
             ChangeTracker.Clear();
+        }
+        catch
+        {
+            ChangeTracker.Clear();
+            throw;
+        }
 
-            // 1st command can return success, but one in chain failed
-            return result is { IsSuccess: true }
-                ? T.Failure(_firstFailure!.Code, _firstFailure.Error)
-                : result;
-        }, cancellationToken);
+        // 1st command can return success, but one in chain failed
+        return result is { IsSuccess: true }
+            ? T.Failure(_firstFailure!.Code, _firstFailure.Error)
+            : result;
     }
 
     private List<OutboxMessage> AddOutboxMessages()
