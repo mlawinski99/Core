@@ -1,59 +1,31 @@
-using Core.CQRS;
-using Core.CQRS.Decorators;
-using Core.DataAccessTypes;
-using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
-using Core.Logger;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 
 namespace Core.IntegrationTests.Shared;
 
-public abstract class IntegrationTestBase<TFixture> : IDisposable
-    where TFixture : IntegrationTestFixtureBase
+public abstract class IntegrationTestBase(PostgresFixture postgresFixture) : IAsyncLifetime
 {
-    private readonly IServiceScope _scope;
+    protected PostgresFixture PostgresFixture { get; } = postgresFixture;
 
-    protected TFixture Fixture { get; }
-    protected TestDbContext Db { get; }
-    protected ServiceProvider Services { get; }
-    protected IRequestDispatcher Dispatcher { get; }
+    protected TestDateTimeProvider DateTimeProvider { get; } = new();
+    protected TestUserProvider UserProvider { get; } = new();
+    protected TestEncryptor Encryptor { get; } = new();
 
-    protected IntegrationTestBase(TFixture fixture)
+    protected TestDbContext Db { get; private set; } = null!;
+
+    public virtual async Task InitializeAsync()
     {
-        Fixture = fixture;
-
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-
-        Services = services.BuildServiceProvider();
-        _scope = Services.CreateScope();
+        await PostgresFixture.EnsureSchemaCreatedAsync();
 
         Db = CreateDbContext();
-        Dispatcher = _scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
     }
 
-    protected virtual TestDbContext CreateDbContext() =>
-        _scope.ServiceProvider.GetRequiredService<TestDbContext>();
+    protected virtual TestDbContext CreateDbContext() => PostgresFixture.CreateDbContext();
 
-    protected virtual void ConfigureServices(IServiceCollection services)
+    public virtual async Task DisposeAsync()
     {
-        services.AddLogging();
-        services.AddAppLogger();
-        services.AddSingleton<IJsonSerializer, TestJsonSerializer>();
-        services.AddDbContext<TestDbContext>(options => options
-            .UseNpgsql(Fixture.PostgresConnectionString)
-            .EnableServiceProviderCaching(false));
-        services.AddUnitOfWork<TestDbContext>();
-        services.AddCqrs(GetType().Assembly);
-        services.AddCqrsDecorators();
-    }
-
-    public virtual void Dispose()
-    {
-        Db.Dispose();
-        _scope.Dispose();
-        Services.Dispose();
+        if (Db is not null)
+            await Db.DisposeAsync();
     }
 }

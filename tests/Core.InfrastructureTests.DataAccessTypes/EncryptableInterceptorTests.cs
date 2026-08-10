@@ -10,22 +10,26 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class EncryptableInterceptorTests : IntegrationTestBase<IntegrationTestFixture>
+public class EncryptableInterceptorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
-    private readonly TestDbContext _dbWithoutInterceptor;
-
-    public EncryptableInterceptorTests(IntegrationTestFixture fixture) : base(fixture)
-    {
-        _dbWithoutInterceptor = fixture.CreateDbContext();
-    }
+    private TestDbContext _dbWithoutInterceptor = null!;
 
     protected override TestDbContext CreateDbContext() =>
-        Fixture.CreateDbContext(new EncryptableInterceptor(new TestEncryptor()));
+        PostgresFixture.CreateDbContext(new EncryptableInterceptor(Encryptor));
 
-    public override void Dispose()
+    public override async Task InitializeAsync()
     {
-        _dbWithoutInterceptor.Dispose();
-        base.Dispose();
+        await base.InitializeAsync();
+
+        _dbWithoutInterceptor = PostgresFixture.CreateDbContext();
+    }
+
+    public override async Task DisposeAsync()
+    {
+        if (_dbWithoutInterceptor is not null)
+            await _dbWithoutInterceptor.DisposeAsync();
+
+        await base.DisposeAsync();
     }
 
     [Theory]

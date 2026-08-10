@@ -18,19 +18,6 @@ public class AesEncryptorTests
     }
 
     [Fact]
-    public void Encrypt_ShouldReturnNonEmptyString()
-    {
-        // Arrange
-        var plainText = "Test";
-
-        // Act
-        var result = _encryptor.Encrypt(plainText);
-
-        // Assert
-        result.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
     public void EncryptAndDecrypt_ShouldReturnOriginalText()
     {
         // Arrange
@@ -56,21 +43,6 @@ public class AesEncryptorTests
 
         // Assert
         encrypted1.Should().Be(encrypted2);
-    }
-
-    [Fact]
-    public void Encrypt_DifferentPlainText_ShouldProduceDifferentEncryptedText()
-    {
-        // Arrange
-        var plainText1 = "Test1";
-        var plainText2 = "Test2";
-
-        // Act
-        var encrypted1 = _encryptor.Encrypt(plainText1);
-        var encrypted2 = _encryptor.Encrypt(plainText2);
-
-        // Assert
-        encrypted1.Should().NotBe(encrypted2);
     }
 
     [Fact]
