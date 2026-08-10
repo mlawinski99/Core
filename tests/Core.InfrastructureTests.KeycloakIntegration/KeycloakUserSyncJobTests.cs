@@ -1,5 +1,5 @@
-using Core.InfrastructureTests.KeycloakIntegration.Fixtures;
 using Core.IntegrationTests.Shared;
+using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.KeycloakSync;
 using Core.Logger;
@@ -11,18 +11,15 @@ using Xunit;
 
 namespace Core.InfrastructureTests.KeycloakIntegration;
 
-[Collection("KeycloakEventSync")]
-public class KeycloakUserSyncJobTests : IntegrationTestBase<KeycloakEventSyncTestFixture>
+[Collection("Keycloak")]
+public class KeycloakUserSyncJobTests(PostgresFixture postgresFixture, KeycloakFixture keycloakFixture)
+    : IntegrationTestBase(postgresFixture)
 {
-    public KeycloakUserSyncJobTests(KeycloakEventSyncTestFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     public async Task Run_WithNewKeycloakUser_ImportsEventAndSyncsUserIntoDatabase()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         var username = $"syncjob-{Guid.NewGuid():N}";
@@ -33,7 +30,7 @@ public class KeycloakUserSyncJobTests : IntegrationTestBase<KeycloakEventSyncTes
         var importer = new KeycloakEventImporter<TestDbContext>(
             Db,
             new TestHttpClientFactory(),
-            Options.Create(Fixture.CreateKeycloakConfig()),
+            Options.Create(keycloakFixture.CreateKeycloakConfig()),
             Substitute.For<IAppLogger<KeycloakEventImporter<TestDbContext>>>(),
             keycloakService,
             new TestJsonSerializer());
@@ -41,8 +38,8 @@ public class KeycloakUserSyncJobTests : IntegrationTestBase<KeycloakEventSyncTes
         var processor = new KeycloakEventProcessor<TestDbContext>(
             Db,
             keycloakService,
-            Fixture.Encryptor,
-            Fixture.DateTimeProvider,
+            Encryptor,
+            DateTimeProvider,
             Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>());
 
         var job = new KeycloakUserSyncJob<TestDbContext>(importer, processor);
@@ -51,11 +48,12 @@ public class KeycloakUserSyncJobTests : IntegrationTestBase<KeycloakEventSyncTes
         await job.Run(CancellationToken.None);
 
         // Assert
-        var users = await Db.Users.ToListAsync();
-        users.Should().Contain(u => u.UserName == username);
+        var syncedUser = await Db.Users.SingleOrDefaultAsync(u => u.UserName == username);
+        syncedUser.Should().NotBeNull();
 
         var events = await Db.KeycloakAdminEvents
-            .Where(e => e.OperationType == "CREATE")
+            .Where(e => e.OperationType == "CREATE"
+                        && e.ResourcePath.Contains(syncedUser.KeycloakId.ToString()))
             .ToListAsync();
         events.Should().NotBeEmpty();
         events.Should().OnlyContain(e => e.IsProcessed);

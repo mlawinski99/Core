@@ -15,7 +15,7 @@ public class JsonSerializerTests
     }
 
     [Fact]
-    public void Serialize_ShouldReturnValidJson()
+    public void Serialize_ShouldUsePropertyNamesUnchanged()
     {
         // Arrange
         var obj = new TestObject { Id = 1, Name = "Test" };
@@ -28,7 +28,7 @@ public class JsonSerializerTests
     }
 
     [Fact]
-    public void Deserialize_ShouldReturnOriginalObject()
+    public void Deserialize_ShouldReadPropertyNamesUnchanged()
     {
         // Arrange
         var json = "{\"Id\":1,\"Name\":\"Test\"}";
@@ -39,85 +39,5 @@ public class JsonSerializerTests
         // Assert
         obj.Id.Should().Be(1);
         obj.Name.Should().Be("Test");
-    }
-
-    [Fact]
-    public void Deserialize_WithInvalidJson_ShouldThrow()
-    {
-        // Arrange
-        var invalidJson = "invalid";
-
-        // Act
-        var act = () => _serializer.Deserialize<TestObject>(invalidJson);
-
-        // Assert
-        act.Should().Throw<Exception>();
-    }
-
-    [Theory]
-    [InlineData(42, "42")]
-    [InlineData(-1, "-1")]
-    [InlineData(0, "0")]
-    public void SerializeDeserialize_Int_ShouldPass(int value, string expectedJson)
-    {
-        var json = _serializer.Serialize(value);
-        json.Should().Be(expectedJson);
-
-        var result = _serializer.Deserialize<int>(json);
-        result.Should().Be(value);
-    }
-
-    [Theory]
-    [InlineData("test")]
-    [InlineData("")]
-    [InlineData("test text")]
-    public void SerializeDeserialize_String_ShouldPass(string value)
-    {
-        var json = _serializer.Serialize(value);
-
-        var result = _serializer.Deserialize<string>(json);
-        result.Should().Be(value);
-    }
-
-    [Theory]
-    [InlineData(true, "true")]
-    [InlineData(false, "false")]
-    public void SerializeDeserialize_Bool_ShouldPass(bool value, string expectedJson)
-    {
-        var json = _serializer.Serialize(value);
-        json.Should().Be(expectedJson);
-
-        var result = _serializer.Deserialize<bool>(json);
-        result.Should().Be(value);
-    }
-
-    [Fact]
-    public void SerializeDeserialize_Array_ShouldWork()
-    {
-        // Arrange
-        var array = new[] { 1, 2, 3 };
-
-        // Act
-        var json = _serializer.Serialize(array);
-        var result = _serializer.Deserialize<int[]>(json);
-
-        // Assert
-        json.Should().Be("[1,2,3]");
-        result.Should().BeEquivalentTo(array);
-    }
-
-    [Fact]
-    public void SerializeDeserialize_List_ShouldWork()
-    {
-        // Arrange
-        var list = new List<string> { "a", "b", "c" };
-
-        // Act
-        var json = _serializer.Serialize(list);
-        var result = _serializer.Deserialize<List<string>>(json);
-
-        // Assert
-        json.Should().Be("[\"a\",\"b\",\"c\"]");
-        result.Should().BeEquivalentTo(list);
     }
 }

@@ -1,25 +1,27 @@
 using Core.Infrastructure.Json;
-using Core.InfrastructureTests.Kafka.Containers;
 using Core.IntegrationTests.Shared.Infrastructure;
+using Core.IntegrationTests.Shared.Settings;
 using Core.KafkaConsumer;
 using Core.KafkaProducer;
 using Core.Logger;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Testcontainers.Kafka;
 using Xunit;
 
 namespace Core.InfrastructureTests.Kafka.Fixtures;
 
-public class KafkaTestFixture : IAsyncLifetime
+public class KafkaFixture : IAsyncLifetime
 {
-    private readonly KafkaContainerFixture _kafkaFixture = new();
+    private readonly KafkaContainer _container = new KafkaBuilder()
+        .WithImage(ContainerImages.Kafka)
+        .Build();
 
-    public string BootstrapServers => _kafkaFixture.BootstrapServers;
+    public string BootstrapServers => _container.GetBootstrapAddress();
 
-    public async Task InitializeAsync()
-    {
-        await _kafkaFixture.StartAsync();
-    }
+    public Task InitializeAsync() => _container.StartAsync();
+
+    public async Task DisposeAsync() => await _container.DisposeAsync();
 
     public KafkaProducer<T> CreateProducer<T>(KafkaProducerConfiguration? config = null)
     {
@@ -31,11 +33,10 @@ public class KafkaTestFixture : IAsyncLifetime
             Acks = "all"
         };
 
-        var options = Options.Create(configuration);
-        var logger = Substitute.For<IAppLogger<KafkaProducer<T>>>();
-        var jsonSerializer = new TestJsonSerializer();
-
-        return new KafkaProducer<T>(options, logger, jsonSerializer);
+        return new KafkaProducer<T>(
+            Options.Create(configuration),
+            Substitute.For<IAppLogger<KafkaProducer<T>>>(),
+            new TestJsonSerializer());
     }
 
     public KafkaConsumer.KafkaConsumer CreateConsumer(KafkaConsumerConfiguration? config = null, List<string>? topics = null)
@@ -44,21 +45,15 @@ public class KafkaTestFixture : IAsyncLifetime
         {
             BootstrapServers = BootstrapServers,
             GroupId = $"test-group-{Guid.NewGuid()}",
-            AllowedTopics = topics ?? new List<string> { "test-topic" },
+            AllowedTopics = topics ?? ["test-topic"],
             AutoOffsetReset = "earliest",
             EnableAutoCommit = true
         };
 
-        var options = Options.Create(configuration);
-        var logger = Substitute.For<IAppLogger<KafkaConsumer.KafkaConsumer>>();
-
-        return new KafkaConsumer.KafkaConsumer(options, logger);
+        return new KafkaConsumer.KafkaConsumer(
+            Options.Create(configuration),
+            Substitute.For<IAppLogger<KafkaConsumer.KafkaConsumer>>());
     }
 
     public IJsonSerializer CreateJsonSerializer() => new TestJsonSerializer();
-
-    public async Task DisposeAsync()
-    {
-        await _kafkaFixture.DisposeAsync();
-    }
 }

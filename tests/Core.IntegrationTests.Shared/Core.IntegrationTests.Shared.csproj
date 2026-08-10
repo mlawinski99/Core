@@ -1,4 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>false</IsTestProject>
+    </PropertyGroup>
+
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
     </ItemGroup>
@@ -17,6 +23,7 @@
         <ProjectReference Include="..\..\src\Core.DateTimeProvider\Core.DateTimeProvider.csproj" />
         <ProjectReference Include="..\..\src\Core.Keycloak\Core.Keycloak.csproj" />
         <ProjectReference Include="..\..\src\Core.KeycloakSync\Core.KeycloakSync.csproj" />
+        <ProjectReference Include="..\Core.Tests.Shared\Core.Tests.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>

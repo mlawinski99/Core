@@ -1,7 +1,7 @@
-using Core.InfrastructureTests.Migrator.Fixtures;
+using Core.IntegrationTests.Shared.Fixtures;
 using Xunit;
 
 namespace Core.InfrastructureTests.Migrator.Collections;
 
 [CollectionDefinition("Migrator")]
-public class MigratorTestCollection : ICollectionFixture<MigratorTestFixture>;
+public class MigratorTestCollection : ICollectionFixture<PostgresFixture>;

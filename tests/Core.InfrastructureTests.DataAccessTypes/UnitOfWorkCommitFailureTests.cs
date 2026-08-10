@@ -12,11 +12,11 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class UnitOfWorkCommitFailureTests(IntegrationTestFixture fixture)
-    : IntegrationTestBase<IntegrationTestFixture>(fixture)
+public class UnitOfWorkCommitFailureTests(PostgresFixture postgresFixture)
+    : IntegrationTestBase(postgresFixture)
 {
     protected override TestDbContext CreateDbContext() =>
-        Fixture.CreateDbContext(new FailingCommitInterceptor());
+        PostgresFixture.CreateDbContext(new FailingCommitInterceptor());
 
     [Fact]
     public async Task ExecuteInTransaction_WhenCommitFails_ShouldStopTrackingTheWrite()

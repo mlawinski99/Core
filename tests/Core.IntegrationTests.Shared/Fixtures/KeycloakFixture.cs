@@ -1,19 +1,24 @@
+using Core.IntegrationTests.Shared.Infrastructure;
 using Core.IntegrationTests.Shared.Settings;
+using Core.Keycloak;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using Microsoft.Extensions.Options;
+using Xunit;
 
-namespace Core.IntegrationTests.Shared.Infrastructure.Containers;
+namespace Core.IntegrationTests.Shared.Fixtures;
 
-public class KeycloakContainerFixture : IAsyncDisposable
+public class KeycloakFixture : IAsyncLifetime
 {
     private readonly IContainer _container;
+    private readonly IHttpClientFactory _httpClientFactory = new TestHttpClientFactory();
 
     public string BaseUrl => $"http://{_container.Hostname}:{_container.GetMappedPublicPort(8080)}";
     public string Realm => "test-realm";
     public string ClientId => "test-client";
     public string ClientSecret => "test-secret";
 
-    public KeycloakContainerFixture()
+    public KeycloakFixture()
     {
         var realmDir = Path.Combine(AppContext.BaseDirectory, "TestData");
         var realmPath = Path.Combine(realmDir, "test-realm.json");
@@ -35,7 +40,18 @@ public class KeycloakContainerFixture : IAsyncDisposable
             .Build();
     }
 
-    public Task StartAsync() => _container.StartAsync();
+    public Task InitializeAsync() => _container.StartAsync();
 
-    public ValueTask DisposeAsync() => _container.DisposeAsync();
+    public async Task DisposeAsync() => await _container.DisposeAsync();
+
+    public KeycloakConfig CreateKeycloakConfig() => new()
+    {
+        AuthServerUrl = BaseUrl,
+        Realm = Realm,
+        ClientId = ClientId,
+        ClientSecret = ClientSecret
+    };
+
+    public IKeycloakService CreateKeycloakService() =>
+        new KeycloakService(_httpClientFactory, Options.Create(CreateKeycloakConfig()), new TestJsonSerializer());
 }

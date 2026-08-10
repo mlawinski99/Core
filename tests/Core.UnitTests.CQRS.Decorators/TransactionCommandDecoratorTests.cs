@@ -1,6 +1,7 @@
 using Core.CQRS;
 using Core.CQRS.Decorators;
 using Core.ResultPattern;
+using Core.Tests.Shared;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;

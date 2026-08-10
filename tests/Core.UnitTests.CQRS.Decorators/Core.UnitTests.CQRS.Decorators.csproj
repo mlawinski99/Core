@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Core.CQRS.Decorators\Core.CQRS.Decorators.csproj" />
+        <ProjectReference Include="..\Core.Tests.Shared\Core.Tests.Shared.csproj" />
     </ItemGroup>
 
 </Project>

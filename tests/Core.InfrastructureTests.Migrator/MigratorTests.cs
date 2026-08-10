@@ -1,4 +1,4 @@
-using Core.InfrastructureTests.Migrator.Fixtures;
+using Core.IntegrationTests.Shared.Fixtures;
 using FluentAssertions;
 using Npgsql;
 using Xunit;
@@ -8,12 +8,12 @@ namespace Core.InfrastructureTests.Migrator;
 [Collection("Migrator")]
 public class MigratorTests : IAsyncLifetime
 {
-    private readonly MigratorTestFixture _fixture;
+    private readonly PostgresFixture _postgresFixture;
     private readonly string _scriptPath;
 
-    public MigratorTests(MigratorTestFixture fixture)
+    public MigratorTests(PostgresFixture postgresFixture)
     {
-        _fixture = fixture;
+        _postgresFixture = postgresFixture;
         _scriptPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_scriptPath);
     }
@@ -38,7 +38,7 @@ public class MigratorTests : IAsyncLifetime
         WriteSqlFile("001_script.sql",
             @"CREATE TABLE IF NOT EXISTS ""TestTable"" (""Id"" SERIAL PRIMARY KEY, ""Name"" TEXT);");
 
-        var migrator = _fixture.CreateMigrator(_scriptPath);
+        var migrator = new Core.Migrator.Migrator(_postgresFixture.ConnectionString, _scriptPath);
 
         // Act
         await migrator.ExecutePendingMigrationsAsync();
@@ -58,7 +58,7 @@ public class MigratorTests : IAsyncLifetime
         WriteSqlFile("001_first.sql",
             @"CREATE TABLE IF NOT EXISTS ""SkipTest"" (""Id"" SERIAL PRIMARY KEY);");
 
-        var migrator = _fixture.CreateMigrator(_scriptPath);
+        var migrator = new Core.Migrator.Migrator(_postgresFixture.ConnectionString, _scriptPath);
         await migrator.ExecutePendingMigrationsAsync();
 
         WriteSqlFile("002_second.sql",
@@ -78,7 +78,7 @@ public class MigratorTests : IAsyncLifetime
         // Arrange
         WriteSqlFile("001_invalid.sql", "INVALID;");
 
-        var migrator = _fixture.CreateMigrator(_scriptPath);
+        var migrator = new Core.Migrator.Migrator(_postgresFixture.ConnectionString, _scriptPath);
 
         // Act
         var act = () => migrator.ExecutePendingMigrationsAsync();
@@ -95,7 +95,7 @@ public class MigratorTests : IAsyncLifetime
     {
         // Arrange
         var missingPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        var migrator = _fixture.CreateMigrator(missingPath);
+        var migrator = new Core.Migrator.Migrator(_postgresFixture.ConnectionString, missingPath);
 
         // Act
         var act = () => migrator.ExecutePendingMigrationsAsync();
@@ -115,7 +115,7 @@ public class MigratorTests : IAsyncLifetime
         WriteSqlFile("002_second.sql",
             @"INSERT INTO ""OrderTest"" (""Name"") VALUES ('second');");
 
-        var migrator = _fixture.CreateMigrator(_scriptPath);
+        var migrator = new Core.Migrator.Migrator(_postgresFixture.ConnectionString, _scriptPath);
 
         // Act
         await migrator.ExecutePendingMigrationsAsync();
@@ -133,7 +133,7 @@ public class MigratorTests : IAsyncLifetime
 
     private async Task<HashSet<string>> GetExecutedScriptNames()
     {
-        await using var conn = new NpgsqlConnection(_fixture.ConnectionString);
+        await using var conn = new NpgsqlConnection(_postgresFixture.ConnectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
@@ -149,7 +149,7 @@ public class MigratorTests : IAsyncLifetime
 
     private async Task<bool> TableExists(string tableName)
     {
-        await using var conn = new NpgsqlConnection(_fixture.ConnectionString);
+        await using var conn = new NpgsqlConnection(_postgresFixture.ConnectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
@@ -161,7 +161,7 @@ public class MigratorTests : IAsyncLifetime
 
     private async Task<List<string>> QueryColumn(string sql)
     {
-        await using var conn = new NpgsqlConnection(_fixture.ConnectionString);
+        await using var conn = new NpgsqlConnection(_postgresFixture.ConnectionString);
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(sql, conn);
@@ -176,7 +176,7 @@ public class MigratorTests : IAsyncLifetime
 
     private async Task DropMigrationHistoryTableAsync()
     {
-        await using var conn = new NpgsqlConnection(_fixture.ConnectionString);
+        await using var conn = new NpgsqlConnection(_postgresFixture.ConnectionString);
         await conn.OpenAsync();
         await using var cmd = new NpgsqlCommand(@"DROP TABLE IF EXISTS public.""MigrationHistory""", conn);
         await cmd.ExecuteNonQueryAsync();

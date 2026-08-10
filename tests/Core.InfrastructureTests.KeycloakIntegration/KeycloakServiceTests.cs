@@ -1,25 +1,20 @@
-using System;
-using System.Threading.Tasks;
-using Core.InfrastructureTests.KeycloakIntegration.Fixtures;
-using Core.IntegrationTests.Shared;
+using System.Net;
+using Core.IntegrationTests.Shared.Fixtures;
+using Core.Keycloak;
 using Core.IntegrationTests.Shared.Infrastructure;
 using FluentAssertions;
 using Xunit;
 
 namespace Core.InfrastructureTests.KeycloakIntegration;
 
-[Collection("KeycloakEventSync")]
-public class KeycloakServiceTests : IntegrationTestBase<KeycloakEventSyncTestFixture>
+[Collection("Keycloak")]
+public class KeycloakServiceTests(KeycloakFixture keycloakFixture)
 {
-    public KeycloakServiceTests(KeycloakEventSyncTestFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     public async Task GetToken_ShouldReturnValidToken()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
 
         // Act
         var token = await keycloakService.GetToken();
@@ -32,7 +27,7 @@ public class KeycloakServiceTests : IntegrationTestBase<KeycloakEventSyncTestFix
     public async Task GetUser_WithExistingUser_ShouldReturnUser()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         // Act
@@ -47,7 +42,7 @@ public class KeycloakServiceTests : IntegrationTestBase<KeycloakEventSyncTestFix
     public async Task GetUser_WithNonExistingUser_ShouldReturnNull()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         // Act
@@ -58,38 +53,60 @@ public class KeycloakServiceTests : IntegrationTestBase<KeycloakEventSyncTestFix
     }
 
     [Fact]
-    public async Task CreateUser_ShouldCreateUserInKeycloak()
+    public async Task CreateUser_ShouldCreateUserThatCanAuthenticate()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
+        var username = $"testUserLogin-{Guid.NewGuid()}";
 
         // Act
-        var act = () => keycloakService.CreateUser(token, "testUserCreate", "testUserCreate@test.com", "testPassword123");
+        await keycloakService.CreateUser(token, username, $"{username}@test.com", "testPassword123");
 
         // Assert
-        await act.Should().NotThrowAsync();
+        var login = await keycloakService.LoginUser(username, "testPassword123");
+        login.Should().NotBeNull();
+        login.AccessToken.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenUserAlreadyExists_ShouldThrowConflict()
+    {
+        // Arrange
+        var keycloakService = keycloakFixture.CreateKeycloakService();
+        var token = await keycloakService.GetToken();
+        var username = $"testUserCreate-{Guid.NewGuid()}";
+        await keycloakService.CreateUser(token, username, $"{username}@test.com", "testPassword123");
+
+        // Act
+        var act = () => keycloakService.CreateUser(token, username, $"{username}@test.com", "testPassword123");
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<KeycloakException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
     public async Task UpdateUser_ShouldUpdateUserEmail()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         // Act
-        var act = () => keycloakService.UpdateUser(token, KeycloakTestUsersData.TestUserId, "updatedEmail@test.com");
+        await keycloakService.UpdateUser(token, KeycloakTestUsersData.TestUserUpdateId, "updatedEmail@test.com");
 
         // Assert
-        await act.Should().NotThrowAsync();
+        var user = await keycloakService.GetUser(token, KeycloakTestUsersData.TestUserUpdateId);
+        user.Should().NotBeNull();
+        user.Email.Should().Be("updatedemail@test.com");
     }
 
     [Fact]
     public async Task DeleteUser_ShouldDeleteUserFromKeycloak()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
         var userIdToDelete = KeycloakTestUsersData.TestUserDeleteId;
 
