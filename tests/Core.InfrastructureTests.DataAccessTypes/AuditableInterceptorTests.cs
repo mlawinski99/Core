@@ -1,5 +1,4 @@
 using Core.DataAccessTypes;
-using Core.Infrastructure;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
@@ -10,14 +9,10 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixture>
+public class AuditableInterceptorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
-    public AuditableInterceptorTests(IntegrationTestFixture fixture) : base(fixture)
-    {
-    }
-
     protected override TestDbContext CreateDbContext() =>
-        Fixture.CreateDbContext(new AuditableInterceptor(Fixture.DateTimeProvider, Fixture.UserProvider));
+        PostgresFixture.CreateDbContext(new AuditableInterceptor(DateTimeProvider, UserProvider));
 
     [Theory]
     [InlineData(true)]
@@ -33,8 +28,8 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
         else Db.SaveChanges();
 
         // Assert
-        entity.DateCreatedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
-        entity.DateModifiedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
+        entity.DateCreatedUtc.Should().Be(DateTimeProvider.UtcNow);
+        entity.DateModifiedUtc.Should().Be(DateTimeProvider.UtcNow);
     }
 
     [Theory]
@@ -44,7 +39,7 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
     {
         // Arrange
         var createdAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        Fixture.DateTimeProvider.UtcNow = createdAt;
+        DateTimeProvider.UtcNow = createdAt;
 
         var entity = new AuditableEntity { Name = "Test" };
         Db.AuditableEntities.Add(entity);
@@ -52,7 +47,7 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
         else Db.SaveChanges();
 
         var modifiedAt = new DateTime(2025, 1, 2, 0, 0, 0, DateTimeKind.Utc);
-        Fixture.DateTimeProvider.UtcNow = modifiedAt;
+        DateTimeProvider.UtcNow = modifiedAt;
 
         // Act
         entity.Name = "Updated";
@@ -71,7 +66,7 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
     {
         // Arrange
         var userId = Guid.NewGuid();
-        Fixture.UserProvider.UserId = userId;
+        UserProvider.UserId = userId;
 
         var entity = new AuditableWithUserEntity { Name = "Test" };
         Db.AuditableWithUserEntities.Add(entity);
@@ -83,8 +78,8 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
         // Assert
         entity.CreatedBy.Should().Be(userId);
         entity.ModifiedBy.Should().Be(userId);
-        entity.DateCreatedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
-        entity.DateModifiedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
+        entity.DateCreatedUtc.Should().Be(DateTimeProvider.UtcNow);
+        entity.DateModifiedUtc.Should().Be(DateTimeProvider.UtcNow);
     }
 
     [Theory]
@@ -94,7 +89,7 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
     {
         // Arrange
         var creatorId = Guid.NewGuid();
-        Fixture.UserProvider.UserId = creatorId;
+        UserProvider.UserId = creatorId;
 
         var entity = new AuditableWithUserEntity { Name = "Test" };
         Db.AuditableWithUserEntities.Add(entity);
@@ -102,7 +97,7 @@ public class AuditableInterceptorTests : IntegrationTestBase<IntegrationTestFixt
         else Db.SaveChanges();
 
         var modifierId = Guid.NewGuid();
-        Fixture.UserProvider.UserId = modifierId;
+        UserProvider.UserId = modifierId;
 
         // Act
         entity.Name = "Updated";

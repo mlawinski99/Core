@@ -8,6 +8,7 @@ using Core.Infrastructure;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.Keycloak;
 using Core.Logger;
+using Core.Tests.Shared;
 using Core.Validation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
@@ -41,7 +42,7 @@ public class UsersApiFixture : IAsyncLifetime
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IUserProvider, UserProvider>();
         builder.Services.AddSingleton(KeycloakService);
-        builder.Services.AddScoped<IUnitOfWork, NoDbUnitOfWork>();
+        builder.Services.AddScoped<IUnitOfWork, TestUnitOfWork>();
         builder.Services.AddCqrsDecorators();
 
         builder.Services.AddAuthentication(TestAuthHandler.SchemeName)

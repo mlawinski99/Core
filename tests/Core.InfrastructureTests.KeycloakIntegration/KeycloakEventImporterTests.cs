@@ -1,5 +1,5 @@
-using Core.InfrastructureTests.KeycloakIntegration.Fixtures;
 using Core.IntegrationTests.Shared;
+using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.Keycloak;
 using Core.KeycloakSync;
@@ -12,20 +12,17 @@ using Xunit;
 
 namespace Core.InfrastructureTests.KeycloakIntegration;
 
-[Collection("KeycloakEventSync")]
-public class KeycloakEventImporterTests : IntegrationTestBase<KeycloakEventSyncTestFixture>
+[Collection("Keycloak")]
+public class KeycloakEventImporterTests(PostgresFixture postgresFixture, KeycloakFixture keycloakFixture)
+    : IntegrationTestBase(postgresFixture)
 {
-    public KeycloakEventImporterTests(KeycloakEventSyncTestFixture fixture) : base(fixture)
-    {
-    }
-
     private KeycloakEventImporter<TestDbContext> CreateImporter(IKeycloakService keycloakService)
     {
         var logger = Substitute.For<IAppLogger<KeycloakEventImporter<TestDbContext>>>();
         return new KeycloakEventImporter<TestDbContext>(
             Db,
             new TestHttpClientFactory(),
-            Options.Create(Fixture.CreateKeycloakConfig()),
+            Options.Create(keycloakFixture.CreateKeycloakConfig()),
             logger,
             keycloakService,
             new TestJsonSerializer());
@@ -35,7 +32,7 @@ public class KeycloakEventImporterTests : IntegrationTestBase<KeycloakEventSyncT
     public async Task ImportEventsAsync_WithCreateUserEvent_ShouldStoreEventInDatabase()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         var username = "test24";
@@ -64,10 +61,10 @@ public class KeycloakEventImporterTests : IntegrationTestBase<KeycloakEventSyncT
     public async Task ImportEventsAsync_WithUpdateUserEvent_ShouldStoreEventInDatabase()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
-        await keycloakService.UpdateUser(token, KeycloakTestUsersData.TestUserId, "testEmailUpdate@example.com");
+        await keycloakService.UpdateUser(token, KeycloakTestUsersData.TestUserImportId, "testEmailUpdate@example.com");
 
         await Task.Delay(500);
 
@@ -90,7 +87,7 @@ public class KeycloakEventImporterTests : IntegrationTestBase<KeycloakEventSyncT
     public async Task ImportEventsAsync_WithDeleteUserEvent_ShouldStoreEventInDatabase()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         var username = "testcreate";
@@ -132,7 +129,7 @@ public class KeycloakEventImporterTests : IntegrationTestBase<KeycloakEventSyncT
     public async Task ImportEventsAsync_WithNoNewEvents_ShouldNotInsertDuplicates()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var token = await keycloakService.GetToken();
 
         var username = "test";

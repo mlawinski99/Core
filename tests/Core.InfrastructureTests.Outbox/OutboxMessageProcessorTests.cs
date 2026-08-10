@@ -1,7 +1,10 @@
-using Core.InfrastructureTests.Outbox.Fixtures;
+using Core.IntegrationTests.Shared;
+using Core.IntegrationTests.Shared.Fixtures;
+using Core.IntegrationTests.Shared.Infrastructure;
 using Core.KafkaProducer;
 using Core.Logger;
 using Core.Outbox;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -10,37 +13,30 @@ using Xunit;
 namespace Core.InfrastructureTests.Outbox;
 
 [Collection("Outbox")]
-public class OutboxMessageProcessorTests : IAsyncLifetime
+public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
-    private readonly OutboxTestFixture _fixture;
-    private readonly TestOutboxDbContext _db;
-    private readonly IProducer<OutboxMessage> _producer;
-    private readonly IAppLogger<OutboxMessageProcessor<TestOutboxDbContext>> _logger;
-    private readonly OutboxMessageProcessor<TestOutboxDbContext> _processor;
+    private readonly IProducer<OutboxMessage> _producer = Substitute.For<IProducer<OutboxMessage>>();
+    private readonly IAppLogger<OutboxMessageProcessor<TestDbContext>> _logger =
+        Substitute.For<IAppLogger<OutboxMessageProcessor<TestDbContext>>>();
     private readonly string _testId = Guid.NewGuid().ToString();
 
-    public OutboxMessageProcessorTests(OutboxTestFixture fixture)
-    {
-        _fixture = fixture;
-        _db = fixture.CreateOutboxDbContext();
-        _producer = Substitute.For<IProducer<OutboxMessage>>();
-        _logger = Substitute.For<IAppLogger<OutboxMessageProcessor<TestOutboxDbContext>>>();
+    private OutboxMessageProcessor<TestDbContext> _processor = null!;
 
-        _processor = new OutboxMessageProcessor<TestOutboxDbContext>(
-            _db, _logger, _producer, _fixture.DateTimeProvider);
+    public override async Task InitializeAsync()
+    {
+        await base.InitializeAsync();
+
+        _processor = new OutboxMessageProcessor<TestDbContext>(Db, _logger, _producer, DateTimeProvider);
+
+        await Db.OutboxMessages.ExecuteDeleteAsync();
     }
 
-    public async Task InitializeAsync()
+    public override async Task DisposeAsync()
     {
-        _db.OutboxMessages.RemoveRange(_db.OutboxMessages);
-        await _db.SaveChangesAsync();
-    }
+        if (Db is not null)
+            await Db.OutboxMessages.ExecuteDeleteAsync();
 
-    public async Task DisposeAsync()
-    {
-        _db.OutboxMessages.RemoveRange(_db.OutboxMessages);
-        await _db.SaveChangesAsync();
-        await _db.DisposeAsync();
+        await base.DisposeAsync();
     }
 
     [Fact]
@@ -48,8 +44,8 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
     {
         // Arrange
         var message = CreateUnprocessedMessage();
-        _db.OutboxMessages.Add(message);
-        await _db.SaveChangesAsync();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(true);
@@ -58,9 +54,9 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
         await _processor.ProcessAsync();
 
         // Assert
-        var updated = await _db.OutboxMessages.FindAsync(message.Id);
-        updated!.IsProcessed.Should().BeTrue();
-        updated.ProcessedOn.Should().Be(_fixture.DateTimeProvider.UtcNow);
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.IsProcessed.Should().BeTrue();
+        updated.ProcessedOn.Should().Be(DateTimeProvider.UtcNow);
     }
 
     [Fact]
@@ -68,8 +64,8 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
     {
         // Arrange
         var message = CreateUnprocessedMessage();
-        _db.OutboxMessages.Add(message);
-        await _db.SaveChangesAsync();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(false);
@@ -78,8 +74,8 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
         await _processor.ProcessAsync();
 
         // Assert
-        var updated = await _db.OutboxMessages.FindAsync(message.Id);
-        updated!.IsProcessed.Should().BeFalse();
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.IsProcessed.Should().BeFalse();
         updated.ProcessedOn.Should().BeNull();
 
         _logger.Received().LogError(
@@ -92,8 +88,8 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
     {
         // Arrange
         var message = CreateUnprocessedMessage();
-        _db.OutboxMessages.Add(message);
-        await _db.SaveChangesAsync();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("Kafka unavailable"));
@@ -102,8 +98,8 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
         await _processor.ProcessAsync();
 
         // Assert
-        var updated = await _db.OutboxMessages.FindAsync(message.Id);
-        updated!.IsProcessed.Should().BeFalse();
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.IsProcessed.Should().BeFalse();
         updated.ProcessedOn.Should().BeNull();
 
         _logger.Received().LogError(
@@ -117,11 +113,11 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
     {
         // Arrange
         var processed = CreateUnprocessedMessage();
-        processed.ProcessedOn = _fixture.DateTimeProvider.UtcNow;
+        processed.ProcessedOn = DateTimeProvider.UtcNow;
         processed.IsProcessed = true;
 
-        _db.OutboxMessages.Add(processed);
-        await _db.SaveChangesAsync();
+        Db.OutboxMessages.Add(processed);
+        await Db.SaveChangesAsync();
 
         // Act
         await _processor.ProcessAsync();
@@ -131,21 +127,20 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
             .ProduceAsync(processed.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
-
     [Fact]
     public async Task ProcessAsync_WithMultipleMessages_ShouldProcessInChronologicalOrder()
     {
         // Arrange
         var older = CreateUnprocessedMessage();
-        older.OccurredOnUtc = _fixture.DateTimeProvider.UtcNow.AddMinutes(-10);
+        older.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
         older.Type = "older-topic";
 
         var newer = CreateUnprocessedMessage();
-        newer.OccurredOnUtc = _fixture.DateTimeProvider.UtcNow;
+        newer.OccurredOnUtc = DateTimeProvider.UtcNow;
         newer.Type = "newer-topic";
 
-        _db.OutboxMessages.AddRange(newer, older);
-        await _db.SaveChangesAsync();
+        Db.OutboxMessages.AddRange(newer, older);
+        await Db.SaveChangesAsync();
 
         var producedTopics = new List<string>();
         _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
@@ -167,13 +162,13 @@ public class OutboxMessageProcessorTests : IAsyncLifetime
 
         // Assert
         await _producer.DidNotReceive()
-            .ProduceAsync(Arg.Is<string>(t => t.Contains(_testId)), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     private OutboxMessage CreateUnprocessedMessage() => new()
     {
         Id = Guid.NewGuid(),
-        OccurredOnUtc = _fixture.DateTimeProvider.UtcNow,
+        OccurredOnUtc = DateTimeProvider.UtcNow,
         Type = $"test-topic-{_testId}",
         Content = "{\"key\":\"value\"}",
         ProcessedOn = null,

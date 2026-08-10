@@ -1,19 +1,66 @@
 using Core.CQRS;
+using Core.CQRS.Decorators;
+using Core.DataAccessTypes;
+using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
+using Core.Logger;
 using Core.ResultPattern;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class UnitOfWorkTransactionTests(IntegrationTestFixture fixture)
-    : IntegrationTestBase<IntegrationTestFixture>(fixture)
+public class UnitOfWorkTransactionTests(PostgresFixture postgresFixture)
+    : IntegrationTestBase(postgresFixture)
 {
+    // built once
+    private static ServiceProvider? _services;
+
+    private IServiceScope _scope = null!;
+
+    private IRequestDispatcher Dispatcher { get; set; } = null!;
+
+    public override async Task InitializeAsync()
+    {
+        _services ??= BuildServiceProvider(PostgresFixture);
+        _scope = _services.CreateScope();
+
+        await base.InitializeAsync();
+
+        Dispatcher = _scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+    }
+
+    protected override TestDbContext CreateDbContext() =>
+        _scope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+    private static ServiceProvider BuildServiceProvider(PostgresFixture postgresFixture)
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddAppLogger();
+        services.AddSingleton<IJsonSerializer, TestJsonSerializer>();
+        services.AddScoped(_ => postgresFixture.CreateDbContext());
+        services.AddUnitOfWork<TestDbContext>();
+        services.AddCqrs(typeof(UnitOfWorkTransactionTests).Assembly);
+        services.AddCqrsDecorators();
+
+        return services.BuildServiceProvider();
+    }
+
+    public override Task DisposeAsync()
+    {
+        _scope?.Dispose();
+
+        return Task.CompletedTask;
+    }
+
     [Fact]
     public async Task Dispatch_WhenOuterCommandSucceeds_ShouldPersistBoth()
     {

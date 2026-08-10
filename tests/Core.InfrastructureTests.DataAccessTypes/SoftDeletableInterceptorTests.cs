@@ -10,14 +10,10 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class SoftDeletableInterceptorTests : IntegrationTestBase<IntegrationTestFixture>
+public class SoftDeletableInterceptorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
-    public SoftDeletableInterceptorTests(IntegrationTestFixture fixture) : base(fixture)
-    {
-    }
-
     protected override TestDbContext CreateDbContext() =>
-        Fixture.CreateDbContext(new SoftDeletableInterceptor(Fixture.DateTimeProvider));
+        PostgresFixture.CreateDbContext(new SoftDeletableInterceptor(DateTimeProvider));
 
     [Theory]
     [InlineData(true)]
@@ -31,7 +27,7 @@ public class SoftDeletableInterceptorTests : IntegrationTestBase<IntegrationTest
         else Db.SaveChanges();
 
         var deleteTime = new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
-        Fixture.DateTimeProvider.UtcNow = deleteTime;
+        DateTimeProvider.UtcNow = deleteTime;
 
         // Act
         Db.SoftDeletableEntities.Remove(entity);
@@ -77,4 +73,5 @@ public class SoftDeletableInterceptorTests : IntegrationTestBase<IntegrationTest
 
         countWithFilter.Should().Be(0);
     }
+
 }

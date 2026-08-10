@@ -1,19 +1,19 @@
 using Core.DataAccessTypes;
 using Core.ResultPattern;
 
-namespace Core.UnitTests.CQRS.Decorators;
+namespace Core.Tests.Shared;
 
 public class TestUnitOfWork : IUnitOfWork
 {
     public bool HasActiveTransaction { get; set; }
+
+    public bool TransactionUsed { get; private set; }
 
     public void EnsureNoActiveTransaction(string commandName)
     {
         if (HasActiveTransaction)
             throw new InvalidOperationException(commandName);
     }
-
-    public bool TransactionUsed { get; private set; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(0);

@@ -11,13 +11,10 @@ using Xunit;
 
 namespace Core.InfrastructureTests.KeycloakIntegration;
 
-[Collection("KeycloakIntegration")]
-public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrationTestFixture>
+[Collection("Keycloak")]
+public class KeycloakEventProcessorTests(PostgresFixture postgresFixture, KeycloakFixture keycloakFixture)
+    : IntegrationTestBase(postgresFixture)
 {
-    public KeycloakEventProcessorTests(KeycloakIntegrationTestFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     public async Task KeycloakEventProcessor_WithCreateUserEvent_ShouldSyncUserFromKeycloak()
     {
@@ -30,28 +27,28 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             OperationType = "CREATE",
             ResourceType = "USER",
             ResourcePath = $"users/{KeycloakTestUsersData.TestUserId}",
-            Time = Fixture.DateTimeProvider.UtcNow,
+            Time = DateTimeProvider.UtcNow,
             IsProcessed = false
         };
 
         Db.KeycloakAdminEvents.Add(keycloakEvent);
         await Db.SaveChangesAsync();
 
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
-            Fixture.DateTimeProvider, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Encryptor,
+            DateTimeProvider, logger);
 
         // Act
         await processor.Run();
 
         // Assert
-        var user = await Db.Users.FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
+        var user = await Db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
         user.Should().NotBeNull();
         user.UserName.Should().Be(KeycloakTestUsersData.TestUsername);
         user.Email.Should().Be(KeycloakTestUsersData.TestEmail);
 
-        var processedEvent = await Db.KeycloakAdminEvents.FirstAsync(e => e.Id == keycloakEvent.Id);
+        var processedEvent = await Db.KeycloakAdminEvents.AsNoTracking().FirstAsync(e => e.Id == keycloakEvent.Id);
         processedEvent.IsProcessed.Should().BeTrue();
     }
 
@@ -76,22 +73,22 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             OperationType = "UPDATE",
             ResourceType = "USER",
             ResourcePath = $"users/{KeycloakTestUsersData.TestUserId}",
-            Time = Fixture.DateTimeProvider.UtcNow,
+            Time = DateTimeProvider.UtcNow,
             IsProcessed = false
         };
         Db.KeycloakAdminEvents.Add(keycloakEvent);
         await Db.SaveChangesAsync();
 
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
-            Fixture.DateTimeProvider, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Encryptor,
+            DateTimeProvider, logger);
 
         // Act
         await processor.Run();
 
-        // Assert
-        var user = await Db.Users.FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
+        // Assert - AsNoTracking so a missing persist is visible
+        var user = await Db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
         user.Should().NotBeNull();
         user.UserName.Should().Be(KeycloakTestUsersData.TestUsername);
         user.Email.Should().Be(KeycloakTestUsersData.TestEmail);
@@ -120,16 +117,16 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             OperationType = "DELETE",
             ResourceType = "USER",
             ResourcePath = $"users/{KeycloakTestUsersData.TestUserId}",
-            Time = Fixture.DateTimeProvider.UtcNow,
+            Time = DateTimeProvider.UtcNow,
             IsProcessed = false
         };
         Db.KeycloakAdminEvents.Add(keycloakEvent);
         await Db.SaveChangesAsync();
 
-        var keycloakService = Fixture.CreateKeycloakService();
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
-            Fixture.DateTimeProvider, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Encryptor,
+            DateTimeProvider, logger);
 
         // Act
         await processor.Run();
@@ -146,10 +143,10 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             .FirstOrDefaultAsync(u => u.KeycloakId == Guid.Parse(KeycloakTestUsersData.TestUserId));
         deletedUser.Should().NotBeNull();
         deletedUser.IsDeleted.Should().BeTrue();
-        deletedUser.DateDeletedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
-        deletedUser.DateModifiedUtc.Should().Be(Fixture.DateTimeProvider.UtcNow);
-        deletedUser.UserName.Should().Be(Fixture.Encryptor.Encrypt(anonymizedValue));
-        deletedUser.Email.Should().Be(Fixture.Encryptor.Encrypt(anonymizedValue));
+        deletedUser.DateDeletedUtc.Should().Be(DateTimeProvider.UtcNow);
+        deletedUser.DateModifiedUtc.Should().Be(DateTimeProvider.UtcNow);
+        deletedUser.UserName.Should().Be(Encryptor.Encrypt(anonymizedValue));
+        deletedUser.Email.Should().Be(Encryptor.Encrypt(anonymizedValue));
 
         var processedEvent = await Db.KeycloakAdminEvents.FirstAsync(e => e.Id == keycloakEvent.Id);
         processedEvent.IsProcessed.Should().BeTrue();
@@ -168,7 +165,7 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             OperationType = "CREATE",
             ResourceType = "USER",
             ResourcePath = $"users/{KeycloakTestUsersData.TestUserNoEmailId}",
-            Time = Fixture.DateTimeProvider.UtcNow,
+            Time = DateTimeProvider.UtcNow,
             IsProcessed = false
         };
         var validEvent = new KeycloakAdminEvent
@@ -176,15 +173,15 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
             OperationType = "CREATE",
             ResourceType = "USER",
             ResourcePath = $"users/{KeycloakTestUsersData.TestUserId}",
-            Time = Fixture.DateTimeProvider.UtcNow.AddSeconds(1),
+            Time = DateTimeProvider.UtcNow.AddSeconds(1),
             IsProcessed = false
         };
         Db.KeycloakAdminEvents.AddRange(failingEvent, validEvent);
         await Db.SaveChangesAsync();
 
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, Fixture.CreateKeycloakService(),
-            Fixture.Encryptor, Fixture.DateTimeProvider, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakFixture.CreateKeycloakService(),
+            Encryptor, DateTimeProvider, logger);
 
         // Act
         await processor.Run();
@@ -217,18 +214,22 @@ public class KeycloakEventProcessorTests : IntegrationTestBase<KeycloakIntegrati
     }
 
     [Fact]
-    public async Task KeycloakEventProcessor_WithNoEvents_ShouldNotThrow()
+    public async Task KeycloakEventProcessor_WithNoEvents_ShouldSyncNothing()
     {
         // Arrange
-        var keycloakService = Fixture.CreateKeycloakService();
+        await Db.Users.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await Db.KeycloakAdminEvents.ExecuteDeleteAsync();
+
+        var keycloakService = keycloakFixture.CreateKeycloakService();
         var logger = Substitute.For<IAppLogger<KeycloakEventProcessor<TestDbContext>>>();
-        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Fixture.Encryptor,
-            Fixture.DateTimeProvider, logger);
+        var processor = new KeycloakEventProcessor<TestDbContext>(Db, keycloakService, Encryptor,
+            DateTimeProvider, logger);
 
         // Act
-        var act = () => processor.Run();
+        await processor.Run();
 
         // Assert
-        await act.Should().NotThrowAsync();
+        var users = await Db.Users.IgnoreQueryFilters().ToListAsync();
+        users.Should().BeEmpty();
     }
 }

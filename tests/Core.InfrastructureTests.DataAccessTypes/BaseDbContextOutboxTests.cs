@@ -8,8 +8,8 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
-    : IntegrationTestBase<IntegrationTestFixture>(fixture)
+public class BaseDbContextOutboxTests(PostgresFixture postgresFixture)
+    : IntegrationTestBase(postgresFixture)
 {
     [Theory]
     [InlineData(true)]
@@ -26,7 +26,9 @@ public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
         else Db.SaveChanges();
 
         // Assert
-        var message = await GetOutboxMessageAsync(entity.Id);
+        var message = await Db.OutboxMessages
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Content.Contains(entity.Id.ToString()));
         message.Should().NotBeNull();
         message!.Type.Should().Be(typeof(TestEntityCreatedEvent).FullName);
         message.IsProcessed.Should().BeFalse();
@@ -45,7 +47,9 @@ public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
         await Db.SaveChangesAsync(acceptAllChangesOnSuccess: true);
 
         // Assert
-        var message = await GetOutboxMessageAsync(entity.Id);
+        var message = await Db.OutboxMessages
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Content.Contains(entity.Id.ToString()));
         message.Should().NotBeNull();
         entity.DomainEvents.Should().BeEmpty();
     }
@@ -63,7 +67,9 @@ public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
         await dbContext.SaveChangesAsync();
 
         // Assert
-        var message = await GetOutboxMessageAsync(entity.Id);
+        var message = await Db.OutboxMessages
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Content.Contains(entity.Id.ToString()));
         message.Should().NotBeNull();
         entity.DomainEvents.Should().BeEmpty();
     }
@@ -73,7 +79,7 @@ public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
     {
         // Arrange
         var existing = new TestEntity { Name = "Existing" };
-        await using (var seedContext = Fixture.CreateDbContext())
+        await using (var seedContext = PostgresFixture.CreateDbContext())
         {
             seedContext.TestEntities.Add(existing);
             await seedContext.SaveChangesAsync();
@@ -93,19 +99,12 @@ public class BaseDbContextOutboxTests(IntegrationTestFixture fixture)
         await Db.SaveChangesAsync();
 
         // Assert
-        await using var context = Fixture.CreateDbContext();
-        var messages = await context.OutboxMessages
+        var messages = await Db.OutboxMessages
+            .AsNoTracking()
             .Where(x => x.Content.Contains(existing.Id.ToString()))
             .ToListAsync();
 
         messages.Should().ContainSingle();
         entity.DomainEvents.Should().BeEmpty();
-    }
-
-    private async Task<Outbox.OutboxMessage?> GetOutboxMessageAsync(Guid aggregateId)
-    {
-        await using var context = Fixture.CreateDbContext();
-        return await context.OutboxMessages
-            .SingleOrDefaultAsync(x => x.Content.Contains(aggregateId.ToString()));
     }
 }

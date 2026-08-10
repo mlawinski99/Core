@@ -4,6 +4,4 @@ using Xunit;
 namespace Core.InfrastructureTests.Kafka.Collections;
 
 [CollectionDefinition("Kafka")]
-public class KafkaTestCollection : ICollectionFixture<KafkaTestFixture>
-{
-}
+public class KafkaTestCollection : ICollectionFixture<KafkaFixture>;

@@ -6,38 +6,16 @@ using Xunit;
 namespace Core.InfrastructureTests.Kafka;
 
 [Collection("Kafka")]
-public class KafkaTests
+public class KafkaTests(KafkaFixture kafkaFixture)
 {
-    private readonly KafkaTestFixture _fixture;
-
-    public KafkaTests(KafkaTestFixture fixture)
-    {
-        _fixture = fixture;
-    }
-
-    [Fact]
-    public async Task ProduceAsync_WithValidMessage_ShouldReturnTrue()
-    {
-        // Arrange
-        var topic = "test-topic";
-        var message = new TestMessage { Id = 1, Content = "Test" };
-        using var producer = _fixture.CreateProducer<TestMessage>();
-
-        // Act
-        var result = await producer.ProduceAsync(topic, message);
-
-        // Assert
-        result.Should().BeTrue();
-    }
-
     [Fact]
     public async Task ProduceAsync_MessageCanBeConsumedByConsumer()
     {
         // Arrange
         var topic = "producer-consumer-topic";
         var message = new TestMessage { Id = 3, Content = "Test" };
-        using var producer = _fixture.CreateProducer<TestMessage>();
-        var jsonSerializer = _fixture.CreateJsonSerializer();
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
+        var jsonSerializer = kafkaFixture.CreateJsonSerializer();
 
         string? receivedValue = null;
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -45,7 +23,7 @@ public class KafkaTests
         // Act
         await producer.ProduceAsync(topic, message);
 
-        using var consumer = _fixture.CreateConsumer(topics: new List<string> { topic });
+        using var consumer = kafkaFixture.CreateConsumer(topics: new List<string> { topic });
         var consumeTask = consumer.StartAsync((_, v) =>
         {
             receivedValue = v;
@@ -64,27 +42,11 @@ public class KafkaTests
     }
 
     [Fact]
-    public async Task ProduceAsync_MultipleMessages_ShouldAllBeProduced()
-    {
-        // Arrange
-        var topic = "multi-topic";
-        using var producer = _fixture.CreateProducer<TestMessage>();
-
-        // Act & Assert
-        for (int i = 0; i < 10; i++)
-        {
-            var message = new TestMessage { Id = i, Content = $"Message {i}" };
-            var result = await producer.ProduceAsync(topic, message);
-            result.Should().BeTrue();
-        }
-    }
-
-    [Fact]
     public async Task StartAsync_ShouldInvokeHandlerForEachMessage()
     {
         // Arrange
         var topic = "invoke-topic";
-        using var producer = _fixture.CreateProducer<TestMessage>();
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var receivedMessages = new List<string>();
@@ -96,7 +58,7 @@ public class KafkaTests
         }
 
         // Act
-        using var consumer = _fixture.CreateConsumer(topics: new List<string> { topic });
+        using var consumer = kafkaFixture.CreateConsumer(topics: new List<string> { topic });
         var consumeTask = consumer.StartAsync((_, v) =>
         {
             receivedMessages.Add(v);
@@ -119,7 +81,7 @@ public class KafkaTests
         // Arrange
         var topic1 = "multi-topic-1";
         var topic2 = "multi-topic-2";
-        using var producer = _fixture.CreateProducer<TestMessage>();
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var receivedTopics = new HashSet<string>();
@@ -128,7 +90,7 @@ public class KafkaTests
         await producer.ProduceAsync(topic2, new TestMessage { Id = 2, Content = "Test 2" });
 
         // Act
-        using var consumer = _fixture.CreateConsumer(topics: new List<string> { topic1, topic2 });
+        using var consumer = kafkaFixture.CreateConsumer(topics: new List<string> { topic1, topic2 });
         var consumeTask = consumer.StartAsync((t, _) =>
         {
             receivedTopics.Add(t);

@@ -10,14 +10,10 @@ using Xunit;
 namespace Core.InfrastructureTests.DataAccessTypes;
 
 [Collection("DataAccessTypesTest")]
-public class VersionableInterceptorTests : IntegrationTestBase<IntegrationTestFixture>
+public class VersionableInterceptorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
-    public VersionableInterceptorTests(IntegrationTestFixture fixture) : base(fixture)
-    {
-    }
-
     protected override TestDbContext CreateDbContext() =>
-        Fixture.CreateDbContext(new VersionableInterceptor());
+        PostgresFixture.CreateDbContext(new VersionableInterceptor());
 
     [Theory]
     [InlineData(true)]

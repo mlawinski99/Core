@@ -3,6 +3,7 @@ using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
 using Core.Logger;
 using Core.ResultPattern;
+using Core.Tests.Shared;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
