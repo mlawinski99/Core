@@ -31,7 +31,7 @@ public class KeycloakService : IKeycloakService
         IJsonSerializer jsonSerializer)
     {
         _jsonSerializer = jsonSerializer;
-        _httpClient = httpClientFactory.CreateClient();
+        _httpClient = httpClientFactory.CreateClient(KeycloakEndpoints.HttpClientName);
         _keycloakConfig = keycloakConfig.Value;
     }
 
