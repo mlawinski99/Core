@@ -155,6 +155,251 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
+    public async Task ProcessAsync_ShouldKeyMessagesByAggregateId()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        message.CorrelationId = "correlation-id";
+
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.Received()
+            .ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), message.AggregateId.ToString(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithFailedMessage_ShouldSkipSameAggregateAndPublishOthers()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+
+        var failing = CreateUnprocessedMessage();
+        failing.AggregateId = aggregateId;
+        failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        failing.Type = "failing-topic";
+
+        var sameAggregate = CreateUnprocessedMessage();
+        sameAggregate.AggregateId = aggregateId;
+        sameAggregate.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        sameAggregate.Type = "same-aggregate-topic";
+
+        var otherAggregate = CreateUnprocessedMessage();
+        otherAggregate.OccurredOnUtc = DateTimeProvider.UtcNow;
+        otherAggregate.Type = "other-aggregate-topic";
+
+        Db.OutboxMessages.AddRange(failing, sameAggregate, otherAggregate);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+        _producer.ProduceAsync("same-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+        _producer.ProduceAsync("other-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("same-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var skipped = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == sameAggregate.Id);
+        skipped.IsProcessed.Should().BeFalse();
+        skipped.RetryCount.Should().Be(0);
+
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == otherAggregate.Id);
+        published.IsProcessed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithProduceFailure_ShouldIncrementRetryCountAndScheduleNextRetry()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(1);
+        updated.NextRetryUtc.Should().Be(DateTimeProvider.UtcNow.AddMinutes(2));
+        updated.LastError.Should().NotBeNullOrEmpty();
+        updated.StoppedRetryingUtc.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithMessageScheduledInFuture_ShouldNotProduceYet()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        message.RetryCount = 1;
+        message.NextRetryUtc = DateTimeProvider.UtcNow.AddMinutes(5);
+
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithFailureOnFinalAttempt_ShouldStopRetryingAndExcludeFromLaterRuns()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        message.RetryCount = 4;
+        message.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = message.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(message, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+        await _processor.ProcessAsync();
+
+        // Assert
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(5);
+        updated.StoppedRetryingUtc.Should().Be(DateTimeProvider.UtcNow);
+        updated.LastError.Should().NotBeNullOrEmpty();
+
+        await _producer.Received(1)
+            .ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        await _producer.DidNotReceive()
+            .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        blocked.IsProcessed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithFailedMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+
+        var failing = CreateUnprocessedMessage();
+        failing.AggregateId = aggregateId;
+        failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        failing.Type = "failing-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = aggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(failing, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        blocked.IsProcessed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithParkedMessage_ShouldNotPublishLaterMessageForSameAggregate()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+
+        var parked = CreateUnprocessedMessage();
+        parked.AggregateId = aggregateId;
+        parked.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        parked.RetryCount = 5;
+        parked.StoppedRetryingUtc = DateTimeProvider.UtcNow;
+        parked.Type = "parked-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = aggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(parked, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WhenCancelled_ShouldNotCountAsDeliveryFailure()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns<bool>(_ =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            });
+
+        // Act
+        var act = async () => await _processor.ProcessAsync(cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(0);
+        updated.LastError.Should().BeNull();
+        updated.NextRetryUtc.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ProcessAsync_WithNoUnprocessedMessages_ShouldNotProduce()
     {
         // Act
@@ -168,6 +413,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     private OutboxMessage CreateUnprocessedMessage() => new()
     {
         Id = Guid.NewGuid(),
+        AggregateId = Guid.NewGuid(),
         OccurredOnUtc = DateTimeProvider.UtcNow,
         Type = $"test-topic-{_testId}",
         Content = "{\"key\":\"value\"}",
