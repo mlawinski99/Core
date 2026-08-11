@@ -178,29 +178,33 @@ public abstract class BaseDbContext(
         if (this is not IOutbox outboxContext)
             return [];
 
-        var domainEvents = ChangeTracker
+        var aggregates = ChangeTracker
             .Entries<AggregateRoot>()
-            .SelectMany(x => x.Entity.DomainEvents)
+            .Select(x => x.Entity)
             .ToList();
 
         var correlationId = Activity.Current?.TraceId.ToString();
 
         var messages = new List<OutboxMessage>();
 
-        foreach (var domainEvent in domainEvents)
+        foreach (var aggregate in aggregates)
         {
-            var message = new OutboxMessage
+            foreach (var domainEvent in aggregate.DomainEvents)
             {
-                OccurredOnUtc = domainEvent.OccurredOnUtc,
-                Type = domainEvent.GetType().FullName!,
-                Content = jsonSerializer.Serialize(domainEvent),
-                CorrelationId = correlationId,
-                IsProcessed = false,
-                ProcessedOn = null
-            };
+                var message = new OutboxMessage
+                {
+                    AggregateId = aggregate.Id,
+                    OccurredOnUtc = domainEvent.OccurredOnUtc,
+                    Type = domainEvent.GetType().FullName!,
+                    Content = jsonSerializer.Serialize(domainEvent),
+                    CorrelationId = correlationId,
+                    IsProcessed = false,
+                    ProcessedOn = null
+                };
 
-            outboxContext.OutboxMessages.Add(message);
-            messages.Add(message);
+                outboxContext.OutboxMessages.Add(message);
+                messages.Add(message);
+            }
         }
 
         return messages;
