@@ -35,10 +35,10 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
         _jsonSerializer = jsonSerializer;
     }
 
-    public async Task<bool> ProduceAsync(string topic, T message, string? key = null, CancellationToken cancellationToken = default)
+    public async Task<bool> ProduceAsync(string topic, T message, string? key, CancellationToken cancellationToken = default)
     {
         var serializedMessage = _jsonSerializer.Serialize(message);
-        var messageKey = key ?? Guid.NewGuid().ToString();
+        var messageKey = key ?? Guid.Empty.ToString();
 
         try
         {

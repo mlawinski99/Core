@@ -21,7 +21,7 @@ public class KafkaTests(KafkaFixture kafkaFixture)
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
-        await producer.ProduceAsync(topic, message);
+        await producer.ProduceAsync(topic, message, key: null);
 
         using var consumer = kafkaFixture.CreateConsumer(topics: new List<string> { topic });
         var consumeTask = consumer.StartAsync((_, v) =>
@@ -54,7 +54,7 @@ public class KafkaTests(KafkaFixture kafkaFixture)
 
         for (int i = 0; i < expectedCount; i++)
         {
-            await producer.ProduceAsync(topic, new TestMessage { Id = i, Content = $"Test {i}" });
+            await producer.ProduceAsync(topic, new TestMessage { Id = i, Content = $"Test {i}" }, key: null);
         }
 
         // Act
@@ -86,8 +86,8 @@ public class KafkaTests(KafkaFixture kafkaFixture)
 
         var receivedTopics = new HashSet<string>();
 
-        await producer.ProduceAsync(topic1, new TestMessage { Id = 1, Content = "Test 1" });
-        await producer.ProduceAsync(topic2, new TestMessage { Id = 2, Content = "Test 2" });
+        await producer.ProduceAsync(topic1, new TestMessage { Id = 1, Content = "Test 1" }, key: null);
+        await producer.ProduceAsync(topic2, new TestMessage { Id = 2, Content = "Test 2" }, key: null);
 
         // Act
         using var consumer = kafkaFixture.CreateConsumer(topics: new List<string> { topic1, topic2 });
