@@ -30,10 +30,9 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
     {
         var now = _dateTimeProvider.UtcNow;
 
+        // we want to block aggregate if any message fails
         var messages = await _db.OutboxMessages
-            .Where(m => m.ProcessedOn == null
-                        && m.StoppedRetryingUtc == null
-                        && (m.NextRetryUtc == null || m.NextRetryUtc <= now))
+            .Where(m => m.ProcessedOn == null)
             .OrderBy(m => m.OccurredOnUtc)
             .Take(_batchSize)
             .ToListAsync(cancellationToken);
@@ -44,7 +43,13 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
         {
             if (skippedAggregates.Contains(message.AggregateId))
             {
-                _logger.LogWarning("Skipping outbox message {MessageId}; an earlier message for aggregate {AggregateId} failed", message.Id, message.AggregateId);
+                _logger.LogWarning("Skipping outbox message {MessageId}; an earlier message for aggregate {AggregateId} is still unpublished", message.Id, message.AggregateId);
+                continue;
+            }
+
+            if (message.StoppedRetryingUtc is not null || message.NextRetryUtc > now)
+            {
+                skippedAggregates.Add(message.AggregateId);
                 continue;
             }
 
@@ -66,6 +71,10 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
                     await HandleFailureAsync(message, $"Producer returned false for topic {message.Type}", skippedAggregates, cancellationToken);
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process outbox message {MessageId}", message.Id);
@@ -78,18 +87,18 @@ public class OutboxMessageProcessor<TContext> : IOutboxMessageProcessor<TContext
     {
         message.RetryCount++;
         message.LastError = error;
+        skippedAggregates.Add(message.AggregateId);
 
         if (message.RetryCount >= MaxRetries)
         {
             message.StoppedRetryingUtc = _dateTimeProvider.UtcNow;
 
-            _logger.LogError("Outbox message {MessageId} of type {Type} for aggregate {AggregateId} parked after {RetryCount} attempts, correlation {CorrelationId}: {LastError}",
+            _logger.LogError("Outbox message {MessageId} of type {Type} for aggregate {AggregateId} parked after {RetryCount} attempts, correlation {CorrelationId}: {LastError}. Aggregate stays blocked until the message is replayed",
                 message.Id, message.Type, message.AggregateId, message.RetryCount, message.CorrelationId ?? "NULL", error);
         }
         else
         {
             message.NextRetryUtc = _dateTimeProvider.UtcNow.AddMinutes(Math.Pow(2, message.RetryCount));
-            skippedAggregates.Add(message.AggregateId);
 
             _logger.LogWarning("Retry {RetryCount} of {MaxRetries} scheduled for outbox message {MessageId} at {NextRetryUtc}; skipping aggregate {AggregateId} for the rest of this run",
                 message.RetryCount, MaxRetries, message.Id, message.NextRetryUtc, message.AggregateId);
