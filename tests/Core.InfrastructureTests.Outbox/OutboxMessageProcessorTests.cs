@@ -267,12 +267,20 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
         // Arrange
         var message = CreateUnprocessedMessage();
         message.RetryCount = 4;
+        message.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
 
-        Db.OutboxMessages.Add(message);
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = message.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(message, later);
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(false);
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
 
         // Act
         await _processor.ProcessAsync();
@@ -286,6 +294,109 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
 
         await _producer.Received(1)
             .ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        await _producer.DidNotReceive()
+            .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        blocked.IsProcessed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithFailedMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+
+        var failing = CreateUnprocessedMessage();
+        failing.AggregateId = aggregateId;
+        failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        failing.Type = "failing-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = aggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(failing, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        blocked.IsProcessed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithParkedMessage_ShouldNotPublishLaterMessageForSameAggregate()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+
+        var parked = CreateUnprocessedMessage();
+        parked.AggregateId = aggregateId;
+        parked.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        parked.RetryCount = 5;
+        parked.StoppedRetryingUtc = DateTimeProvider.UtcNow;
+        parked.Type = "parked-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = aggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(parked, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        // Act
+        await _processor.ProcessAsync();
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WhenCancelled_ShouldNotCountAsDeliveryFailure()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns<bool>(_ =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            });
+
+        // Act
+        var act = async () => await _processor.ProcessAsync(cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(0);
+        updated.LastError.Should().BeNull();
+        updated.NextRetryUtc.Should().BeNull();
     }
 
     [Fact]
