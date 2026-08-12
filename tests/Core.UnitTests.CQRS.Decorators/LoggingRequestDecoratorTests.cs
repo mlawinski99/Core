@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Core.CQRS;
 using Core.CQRS.Decorators;
 using Core.Logger;
@@ -38,5 +39,44 @@ public class LoggingRequestDecoratorTests
         await decorator.Handle(new TestQuery(5), CancellationToken.None);
 
         _queryLogger.Received(2).LogInformation(Arg.Any<string>(), Arg.Any<object[]>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenResultIsFailure_ShouldMarkActivityAsError()
+    {
+        Activity? stoppedActivity = null;
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "Core.CQRS";
+        listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded;
+        listener.ActivityStopped = activity => stoppedActivity = activity;
+        ActivitySource.AddActivityListener(listener);
+
+        var handler = Substitute.For<IRequestHandler<TestCommand, Result>>();
+        handler.Handle(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>()).Returns(Result.NotFound("error"));
+        var decorator = new LoggingRequestDecorator<TestCommand, Result>(handler, _commandLogger);
+
+        await decorator.Handle(new TestCommand("test"), CancellationToken.None);
+
+        stoppedActivity!.Status.Should().Be(ActivityStatusCode.Error);
+        stoppedActivity.StatusDescription.Should().Be("error");
+    }
+
+    [Fact]
+    public async Task Handle_WhenResultIsSuccess_ShouldLeaveActivityStatusUnset()
+    {
+        Activity? stoppedActivity = null;
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "Core.CQRS";
+        listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded;
+        listener.ActivityStopped = activity => stoppedActivity = activity;
+        ActivitySource.AddActivityListener(listener);
+
+        var handler = Substitute.For<IRequestHandler<TestCommand, Result>>();
+        handler.Handle(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>()).Returns(Result.Success);
+        var decorator = new LoggingRequestDecorator<TestCommand, Result>(handler, _commandLogger);
+
+        await decorator.Handle(new TestCommand("test"), CancellationToken.None);
+
+        stoppedActivity!.Status.Should().Be(ActivityStatusCode.Unset);
     }
 }
