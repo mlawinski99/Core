@@ -27,6 +27,10 @@ public class LoggingRequestDecorator<TRequest, TResult>(
         sw.Stop();
 
         activity?.SetTag("cqrs.result_code", result?.Code.ToString());
+
+        if (result is { IsSuccess: false })
+            activity?.SetStatus(ActivityStatusCode.Error, result.Error);
+
         logger.LogInformation("{Handler} completed with {ResultCode} in {ElapsedMs}ms", handlerName, result?.Code, sw.ElapsedMilliseconds);
 
         return result;
