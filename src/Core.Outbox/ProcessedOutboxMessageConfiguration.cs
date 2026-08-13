@@ -3,14 +3,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Outbox;
 
-public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
+public class ProcessedOutboxMessageConfiguration : IEntityTypeConfiguration<ProcessedOutboxMessage>
 {
-    public void Configure(EntityTypeBuilder<OutboxMessage> builder)
+    public void Configure(EntityTypeBuilder<ProcessedOutboxMessage> builder)
     {
-        builder.ToTable("OutboxMessages");
+        builder.ToTable("ProcessedOutboxMessages");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Type).IsRequired();
         builder.Property(x => x.Content).IsRequired();
-        builder.HasIndex(x => new { x.ProcessedOn, x.OccurredOnUtc });
     }
 }

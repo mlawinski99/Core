@@ -10,13 +10,12 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;
 
-public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext, IOutbox
+public class TestDbContext(
+    DbContextOptions<TestDbContext> options,
+    IJsonSerializer jsonSerializer,
+    IEnumerable<IInterceptor> interceptors)
+    : BaseDbContext(options, jsonSerializer, interceptors), IUserContext, IKeycloakEventsContext, IOutbox
 {
-    public TestDbContext(DbContextOptions<TestDbContext> options, IJsonSerializer jsonSerializer, IEnumerable<IInterceptor> interceptors)
-        : base(options, jsonSerializer, interceptors)
-    {
-    }
-
     public DbSet<KeycloakAdminEvent> KeycloakAdminEvents { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<AuditableEntity> AuditableEntities { get; set; }
@@ -26,6 +25,7 @@ public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext
     public DbSet<EncryptableEntity> EncryptableEntities { get; set; }
     public DbSet<TestEntity> TestEntities { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<ProcessedOutboxMessage> ProcessedOutboxMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,5 +73,6 @@ public class TestDbContext : BaseDbContext, IUserContext, IKeycloakEventsContext
         });
 
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessedOutboxMessageConfiguration());
     }
 }

@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
+      <ProjectReference Include="..\Core.BackgroundJobs\Core.BackgroundJobs.csproj" />
       <ProjectReference Include="..\Core.DateTimeProvider\Core.DateTimeProvider.csproj" />
       <ProjectReference Include="..\Core.Logger\Core.Logger.csproj" />
       <ProjectReference Include="..\Core.KafkaProducer\Core.KafkaProducer.csproj" />
