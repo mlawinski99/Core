@@ -5,6 +5,7 @@ using Core.KafkaProducer;
 using Core.Logger;
 using Core.Outbox;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -26,7 +27,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     {
         await base.InitializeAsync();
 
-        _processor = new OutboxMessageProcessor<TestDbContext>(Db, _logger, _producer, DateTimeProvider);
+        _processor = new OutboxMessageProcessor<TestDbContext>(Db, _logger, _producer, DateTimeProvider, Options.Create(new OutboxOptions()));
 
         await Db.OutboxMessages.ExecuteDeleteAsync();
     }
@@ -44,6 +45,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     {
         // Arrange
         var message = CreateUnprocessedMessage();
+        message.CorrelationId = "trace-id";
         Db.OutboxMessages.Add(message);
         await Db.SaveChangesAsync();
 
@@ -57,6 +59,10 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
         updated.IsProcessed.Should().BeTrue();
         updated.ProcessedOn.Should().Be(DateTimeProvider.UtcNow);
+
+        _logger.Received().LogInformation(
+            Arg.Is<string>(s => s.Contains("Published outbox message")),
+            Arg.Is<object[]>(args => args.Any(a => a.Equals(message.Id)) && args.Any(a => a.Equals("trace-id"))));
     }
 
     [Fact]
