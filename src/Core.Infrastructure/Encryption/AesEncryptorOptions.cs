@@ -4,5 +4,5 @@ public class AesEncryptorOptions
 {
     public const string SectionName = "Encryption";
 
-    public string Key { get; set; }
+    public required string Key { get; init; }
 }
