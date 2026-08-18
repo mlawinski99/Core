@@ -1,9 +1,12 @@
 namespace Core.KafkaProducer;
 
+// @TODO analyze settings and set it up correctly
 public class KafkaProducerConfiguration
 {
-    public string BootstrapServers { get; set; }
-    public bool EnableIdempotence { get; set; }
-    public int MessageTimeoutMs { get; set; }
-    public string Acks { get; set; }
+    public const string SectionName = "Kafka:Producer";
+
+    public required string BootstrapServers { get; init; }
+    public bool EnableIdempotence { get; init; } = true;
+    public int MessageTimeoutMs { get; init; } = 30000;
+    public string Acks { get; init; } = "all";
 }

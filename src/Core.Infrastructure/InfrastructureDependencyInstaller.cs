@@ -9,7 +9,11 @@ public static class InfrastructureDependencyInstaller
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         // @TODO split into multiple dll
-        services.Configure<AesEncryptorOptions>(configuration.GetSection(AesEncryptorOptions.SectionName));
+        services.AddOptions<AesEncryptorOptions>()
+            .Bind(configuration.GetSection(AesEncryptorOptions.SectionName))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.Key), "Encryption:Key must not be empty")
+            .ValidateOnStart();
+
         services.AddSingleton<IEncryptor, AesEncryptor>();
         services.AddScoped<IUserProvider, UserProvider>();
         services.AddScoped<IJsonSerializer, JsonSerializer>();
