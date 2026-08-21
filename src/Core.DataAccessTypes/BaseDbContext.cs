@@ -1,9 +1,6 @@
-using System.Diagnostics;
 using System.Linq.Expressions;
 using Core.DomainTypes;
 using Core.Infrastructure.Configuration;
-using Core.Infrastructure.Json;
-using Core.Outbox;
 using Core.ResultPattern;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -12,7 +9,6 @@ namespace Core.DataAccessTypes;
 
 public abstract class BaseDbContext(
     DbContextOptions options,
-    IJsonSerializer jsonSerializer,
     IEnumerable<IInterceptor> interceptors)
     : DbContext(options), IUnitOfWork, IConfigurationContext
 {
@@ -51,47 +47,6 @@ public abstract class BaseDbContext(
                 entityType.SetQueryFilter(filter);
             }
         }
-    }
-
-    public override int SaveChanges(bool acceptAllChangesOnSuccess)
-    {
-        var messages = AddOutboxMessages();
-
-        int result;
-        try
-        {
-            result = base.SaveChanges(acceptAllChangesOnSuccess);
-        }
-        catch
-        {
-            DetachOutboxMessages(messages);
-            throw;
-        }
-
-        ClearDomainEvents();
-
-        return result;
-    }
-
-    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
-        CancellationToken cancellationToken = default)
-    {
-        var messages = AddOutboxMessages();
-
-        int result;
-        try
-        {
-            result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-        }
-        catch
-        {
-            DetachOutboxMessages(messages);
-            throw;
-        }
-
-        ClearDomainEvents();
-
-        return result;
     }
 
     private IResultState? _firstFailure;
@@ -171,54 +126,5 @@ public abstract class BaseDbContext(
         return result is { IsSuccess: true }
             ? T.Failure(_firstFailure!.Code, _firstFailure.Error)
             : result;
-    }
-
-    private List<OutboxMessage> AddOutboxMessages()
-    {
-        if (this is not IOutbox outboxContext)
-            return [];
-
-        var aggregates = ChangeTracker
-            .Entries<AggregateRoot>()
-            .Select(x => x.Entity)
-            .ToList();
-
-        var correlationId = Activity.Current?.TraceId.ToString();
-
-        var messages = new List<OutboxMessage>();
-
-        foreach (var aggregate in aggregates)
-        {
-            foreach (var domainEvent in aggregate.DomainEvents)
-            {
-                var message = new OutboxMessage
-                {
-                    AggregateId = aggregate.Id,
-                    OccurredOnUtc = domainEvent.OccurredOnUtc,
-                    Type = domainEvent.GetType().FullName!,
-                    Content = jsonSerializer.Serialize(domainEvent),
-                    CorrelationId = correlationId,
-                    IsProcessed = false,
-                    ProcessedOn = null
-                };
-
-                outboxContext.OutboxMessages.Add(message);
-                messages.Add(message);
-            }
-        }
-
-        return messages;
-    }
-
-    private void DetachOutboxMessages(List<OutboxMessage> messages)
-    {
-        foreach (var message in messages)
-            Entry(message).State = EntityState.Detached;
-    }
-
-    private void ClearDomainEvents()
-    {
-        foreach (var entry in ChangeTracker.Entries<AggregateRoot>())
-            entry.Entity.ClearDomainEvents();
     }
 }

@@ -30,7 +30,7 @@ public class PostgresFixture : IAsyncLifetime
             .UseNpgsql(ConnectionString)
             .Options;
 
-        return new TestDbContext(options, new TestJsonSerializer(), interceptors);
+        return new TestDbContext(options, interceptors);
     }
 
     // for migrator tests

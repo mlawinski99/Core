@@ -12,9 +12,8 @@ namespace Core.IntegrationTests.Shared.Infrastructure;
 
 public class TestDbContext(
     DbContextOptions<TestDbContext> options,
-    IJsonSerializer jsonSerializer,
     IEnumerable<IInterceptor> interceptors)
-    : BaseDbContext(options, jsonSerializer, interceptors), IUserContext, IKeycloakEventsContext, IOutbox
+    : BaseDbContext(options, interceptors), IUserContext, IKeycloakEventsContext, IOutbox
 {
     public DbSet<KeycloakAdminEvent> KeycloakAdminEvents { get; set; }
     public DbSet<User> Users { get; set; }

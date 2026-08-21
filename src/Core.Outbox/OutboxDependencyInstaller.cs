@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +18,7 @@ public static class OutboxDependencyInstaller
             .Validate(o => o.MoveBatchSize > 0, "Outbox:MoveBatchSize must be greater than 0")
             .ValidateOnStart();
 
+        services.AddTransient<IInterceptor, OutboxInterceptor>();
         services.AddScoped(typeof(IOutboxMessageProcessor<>), typeof(OutboxMessageProcessor<>));
         services.AddScoped(typeof(MoveProcessedOutboxMessagesJob<>));
 
