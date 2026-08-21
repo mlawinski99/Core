@@ -1,3 +1,4 @@
+using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
@@ -97,5 +98,53 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
             .ToListAsync();
 
         messages.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task SavingChanges_WhenSerializationFailsPartway_ShouldNotDuplicateEarlierEventsOnRetry()
+    {
+        // Arrange
+        var serializer = new FailingJsonSerializer { FailOnCall = 2 };
+        await using var db = PostgresFixture.CreateDbContext(new OutboxInterceptor(serializer));
+
+        var entity = new TestEntity { Name = "Test" };
+        entity.RaiseCreatedEvent();
+        entity.RaiseCreatedEvent();
+        db.TestEntities.Add(entity);
+
+        // Act
+        var failedSave = () => db.SaveChangesAsync();
+        await failedSave.Should().ThrowAsync<InvalidOperationException>();
+
+        serializer.FailOnCall = 0;
+        await db.SaveChangesAsync();
+
+        // Assert
+        var messages = await db.OutboxMessages
+            .AsNoTracking()
+            .Where(x => x.AggregateId == entity.Id)
+            .ToListAsync();
+
+        messages.Should().HaveCount(2);
+    }
+
+    private class FailingJsonSerializer : IJsonSerializer
+    {
+        private readonly TestJsonSerializer _inner = new();
+        private int _calls;
+
+        public int FailOnCall { get; set; }
+
+        public T Deserialize<T>(string value) => _inner.Deserialize<T>(value);
+
+        public string Serialize<T>(T value)
+        {
+            _calls++;
+
+            if (_calls == FailOnCall)
+                throw new InvalidOperationException();
+
+            return _inner.Serialize(value);
+        }
     }
 }

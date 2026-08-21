@@ -40,18 +40,19 @@ public class OutboxInterceptor(IJsonSerializer jsonSerializer) : SaveChangesInte
 
         foreach (var aggregate in aggregates)
         {
-            foreach (var domainEvent in aggregate.DomainEvents)
-            {
-                outboxContext.OutboxMessages.Add(new OutboxMessage
+            // serialize every event before tracking any, so a failure part-way stages nothing for this aggregate
+            var messages = aggregate.DomainEvents
+                .Select(domainEvent => new OutboxMessage
                 {
                     AggregateId = aggregate.Id,
                     OccurredOnUtc = domainEvent.OccurredOnUtc,
                     Type = domainEvent.GetType().FullName!,
                     Content = jsonSerializer.Serialize(domainEvent),
                     CorrelationId = correlationId
-                });
-            }
+                })
+                .ToList();
 
+            outboxContext.OutboxMessages.AddRange(messages);
             aggregate.ClearDomainEvents();
         }
     }
