@@ -1,3 +1,5 @@
+using Core.BackgroundJobs;
+using Core.BackgroundJobs.Attributes;
 using Core.DateTimeProvider;
 using Core.KafkaProducer;
 using Core.Logger;
@@ -6,18 +8,23 @@ using Microsoft.Extensions.Options;
 
 namespace Core.Outbox;
 
-public class OutboxMessageProcessor<TContext>(
+[DisallowConcurrentExecution]
+// no retries, the next scheduled run picks up whatever failed
+[Retry(0)]
+public class ProcessOutboxMessagesJob<TContext>(
     TContext db,
-    IAppLogger<OutboxMessageProcessor<TContext>> logger,
+    IAppLogger<ProcessOutboxMessagesJob<TContext>> logger,
     IProducer<OutboxMessage> producer,
     IDateTimeProvider dateTimeProvider,
     IOptions<OutboxOptions> options)
-    : IOutboxMessageProcessor<TContext>
+    : IBackgroundJob
     where TContext : DbContext, IOutbox
 {
+    public const string JobId = "process-outbox-messages";
+
     private readonly OutboxOptions _options = options.Value;
 
-    public async Task ProcessAsync(CancellationToken cancellationToken = default)
+    public async Task Run(CancellationToken cancellationToken)
     {
         var now = dateTimeProvider.UtcNow;
 

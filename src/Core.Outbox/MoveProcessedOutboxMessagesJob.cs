@@ -1,4 +1,5 @@
 using Core.BackgroundJobs;
+using Core.BackgroundJobs.Attributes;
 using Core.DateTimeProvider;
 using Core.Logger;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,8 @@ using Microsoft.Extensions.Options;
 namespace Core.Outbox;
 
 [DisallowConcurrentExecution]
+// no retries, the next scheduled run picks up whatever failed
+[Retry(0)]
 public class MoveProcessedOutboxMessagesJob<TContext>(
     TContext db,
     IAppLogger<MoveProcessedOutboxMessagesJob<TContext>> logger,
