@@ -14,20 +14,20 @@ using Xunit;
 namespace Core.InfrastructureTests.Outbox;
 
 [Collection("Outbox")]
-public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
+public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
 {
     private readonly IProducer<OutboxMessage> _producer = Substitute.For<IProducer<OutboxMessage>>();
-    private readonly IAppLogger<OutboxMessageProcessor<TestDbContext>> _logger =
-        Substitute.For<IAppLogger<OutboxMessageProcessor<TestDbContext>>>();
+    private readonly IAppLogger<ProcessOutboxMessagesJob<TestDbContext>> _logger =
+        Substitute.For<IAppLogger<ProcessOutboxMessagesJob<TestDbContext>>>();
     private readonly string _testId = Guid.NewGuid().ToString();
 
-    private OutboxMessageProcessor<TestDbContext> _processor = null!;
+    private ProcessOutboxMessagesJob<TestDbContext> _job = null!;
 
     public override async Task InitializeAsync()
     {
         await base.InitializeAsync();
 
-        _processor = new OutboxMessageProcessor<TestDbContext>(Db, _logger, _producer, DateTimeProvider, Options.Create(new OutboxOptions()));
+        _job = new ProcessOutboxMessagesJob<TestDbContext>(Db, _logger, _producer, DateTimeProvider, Options.Create(new OutboxOptions()));
 
         await Db.OutboxMessages.ExecuteDeleteAsync();
     }
@@ -41,7 +41,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithUnprocessedMessage_ShouldProduceAndMarkAsProcessed()
+    public async Task Run_WithUnprocessedMessage_ShouldProduceAndMarkAsProcessed()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -53,7 +53,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
@@ -66,7 +66,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithProduceFailure_ShouldLogErrorAndNotMarkAsProcessed()
+    public async Task Run_WithProduceFailure_ShouldLogErrorAndNotMarkAsProcessed()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -77,7 +77,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(false);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
@@ -90,7 +90,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithProduceException_ShouldLogErrorAndNotMarkAsProcessed()
+    public async Task Run_WithProduceException_ShouldLogErrorAndNotMarkAsProcessed()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -101,7 +101,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .ThrowsAsync(new Exception("Kafka unavailable"));
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
@@ -115,7 +115,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_ShouldSkipAlreadyProcessedMessages()
+    public async Task Run_ShouldSkipAlreadyProcessedMessages()
     {
         // Arrange
         var processed = CreateUnprocessedMessage();
@@ -126,7 +126,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
         await Db.SaveChangesAsync();
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()
@@ -134,7 +134,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithMultipleMessages_ShouldProcessInChronologicalOrder()
+    public async Task Run_WithMultipleMessages_ShouldProcessInChronologicalOrder()
     {
         // Arrange
         var older = CreateUnprocessedMessage();
@@ -154,14 +154,14 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .AndDoes(ci => producedTopics.Add(ci.ArgAt<string>(0)));
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         producedTopics.Should().ContainInOrder("older-topic", "newer-topic");
     }
 
     [Fact]
-    public async Task ProcessAsync_ShouldKeyMessagesByAggregateId()
+    public async Task Run_ShouldKeyMessagesByAggregateId()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -174,7 +174,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.Received()
@@ -182,7 +182,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithFailedMessage_ShouldSkipSameAggregateAndPublishOthers()
+    public async Task Run_WithFailedMessage_ShouldSkipSameAggregateAndPublishOthers()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
@@ -212,7 +212,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()
@@ -227,7 +227,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithProduceFailure_ShouldIncrementRetryCountAndScheduleNextRetry()
+    public async Task Run_WithProduceFailure_ShouldIncrementRetryCountAndScheduleNextRetry()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -238,7 +238,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(false);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
@@ -249,7 +249,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithMessageScheduledInFuture_ShouldNotProduceYet()
+    public async Task Run_WithMessageScheduledInFuture_ShouldNotProduceYet()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -260,7 +260,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
         await Db.SaveChangesAsync();
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()
@@ -268,7 +268,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithFailureOnFinalAttempt_ShouldStopRetryingAndExcludeFromLaterRuns()
+    public async Task Run_WithFailureOnFinalAttempt_ShouldStopRetryingAndExcludeFromLaterRuns()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -289,8 +289,8 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
+        await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
@@ -309,7 +309,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithFailedMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
+    public async Task Run_WithFailedMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
@@ -333,8 +333,8 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()
@@ -345,7 +345,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithParkedMessage_ShouldNotPublishLaterMessageForSameAggregate()
+    public async Task Run_WithParkedMessage_ShouldNotPublishLaterMessageForSameAggregate()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
@@ -369,7 +369,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             .Returns(true);
 
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()
@@ -377,7 +377,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WhenCancelled_ShouldNotCountAsDeliveryFailure()
+    public async Task Run_WhenCancelled_ShouldNotCountAsDeliveryFailure()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -394,7 +394,7 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
             });
 
         // Act
-        var act = async () => await _processor.ProcessAsync(cts.Token);
+        var act = async () => await _job.Run(cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -406,10 +406,10 @@ public class OutboxMessageProcessorTests(PostgresFixture postgresFixture) : Inte
     }
 
     [Fact]
-    public async Task ProcessAsync_WithNoUnprocessedMessages_ShouldNotProduce()
+    public async Task Run_WithNoUnprocessedMessages_ShouldNotProduce()
     {
         // Act
-        await _processor.ProcessAsync();
+        await _job.Run(CancellationToken.None);
 
         // Assert
         await _producer.DidNotReceive()

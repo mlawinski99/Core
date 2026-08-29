@@ -1,10 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
+      <PackageReference Include="Cronos" />
       <PackageReference Include="Hangfire.AspNetCore" />
       <PackageReference Include="Hangfire.Core" />
       <PackageReference Include="Hangfire.PostgreSql" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
     </ItemGroup>
 
 </Project>
