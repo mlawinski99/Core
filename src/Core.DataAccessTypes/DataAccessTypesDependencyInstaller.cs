@@ -9,10 +9,10 @@ public static class DataAccessTypesDependencyInstaller
     public static IServiceCollection AddSharedDataAccessTypes(this IServiceCollection services)
     {
         services.AddDateProvider();
-        services.AddTransient<IInterceptor, EncryptableInterceptor>();
-        services.AddTransient<IInterceptor, VersionableInterceptor>();
-        services.AddTransient<IInterceptor, AuditableInterceptor>();
-        services.AddTransient<IInterceptor, SoftDeletableInterceptor>();
+        services.AddScoped<IInterceptor, EncryptableInterceptor>();
+        services.AddScoped<IInterceptor, VersionableInterceptor>();
+        services.AddScoped<IInterceptor, AuditableInterceptor>();
+        services.AddScoped<IInterceptor, SoftDeletableInterceptor>();
 
         return services;
     }

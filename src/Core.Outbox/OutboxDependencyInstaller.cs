@@ -23,7 +23,7 @@ public static class OutboxDependencyInstaller
             .Validate(o => CronValidator.IsValid(o.MoveProcessedCron), "Outbox:MoveProcessedCron must be a valid cron expression")
             .ValidateOnStart();
 
-        services.AddTransient<IInterceptor, OutboxInterceptor>();
+        services.AddScoped<IInterceptor, OutboxInterceptor>();
 
         services.AddRecurringJob<ProcessOutboxMessagesJob<TContext>>(
             ProcessOutboxMessagesJob<TContext>.JobId, sp => sp.GetRequiredService<IOptions<OutboxOptions>>().Value.ProcessCron);

@@ -1,7 +1,6 @@
 using Core.DataAccessTypes;
 using Core.Identity.Context;
 using Core.Identity.Domain;
-using Core.Infrastructure.Json;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
 using Core.Outbox;
@@ -55,7 +54,7 @@ public class TestDbContext(
         modelBuilder.Entity<VersionableEntity>(entity =>
         {
             entity.ToTable("VersionableEntities");
-            entity.HasKey(e => e.Id);
+            entity.WithId().WithVersionable();
         });
 
         modelBuilder.Entity<EncryptableEntity>(entity =>
