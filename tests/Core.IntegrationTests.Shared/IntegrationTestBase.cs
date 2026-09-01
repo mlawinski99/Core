@@ -11,6 +11,7 @@ public abstract class IntegrationTestBase(PostgresFixture postgresFixture) : IAs
     protected TestDateTimeProvider DateTimeProvider { get; } = new();
     protected TestUserProvider UserProvider { get; } = new();
     protected TestEncryptor Encryptor { get; } = new();
+    protected TestExpectedVersionProvider ExpectedVersionProvider { get; } = new();
 
     protected TestDbContext Db { get; private set; } = null!;
 

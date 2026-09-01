@@ -1,4 +1,6 @@
 using Core.DomainTypes;
+using Core.Infrastructure;
+using Core.Logger;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -6,7 +8,9 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Core.DataAccessTypes;
 
-public class VersionableInterceptor : SaveChangesInterceptor
+public class VersionableInterceptor(
+    IExpectedVersionProvider expectedVersionProvider,
+    IAppLogger<VersionableInterceptor> logger) : SaveChangesInterceptor
 {
     public override InterceptionResult<int> SavingChanges(
         DbContextEventData eventData,
@@ -36,6 +40,8 @@ public class VersionableInterceptor : SaveChangesInterceptor
                 e.Entity is IVersionable)
             .ToList();
 
+        EnsureExpectedVersionIsCurrent(entries);
+
         foreach (var entry in entries)
         {
             var originalId = (entry.Entity as Entity)?.Id;
@@ -54,6 +60,30 @@ public class VersionableInterceptor : SaveChangesInterceptor
             }
 
             context.Add(historicalClone);
+        }
+    }
+
+    // the version the client edited must still be the newest one stored
+    private void EnsureExpectedVersionIsCurrent(List<EntityEntry> entries)
+    {
+        var expectedVersion = expectedVersionProvider.ExpectedVersion;
+
+        if (expectedVersion is null || entries.Count == 0)
+            return;
+
+        if (entries.Count > 1)
+        {
+            logger.LogWarning(
+                "Expected version ignored, {Count} versionable entities were modified in one save", entries.Count);
+            return;
+        }
+
+        var currentVersion = (int)entries[0].Property(nameof(IVersionable.VersionId)).OriginalValue;
+
+        if (expectedVersion != currentVersion)
+        {
+            throw new DbUpdateConcurrencyException(
+                $"Expected version {expectedVersion} but current version is {currentVersion}");
         }
     }
 

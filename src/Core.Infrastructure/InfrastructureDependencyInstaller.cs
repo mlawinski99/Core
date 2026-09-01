@@ -16,6 +16,7 @@ public static class InfrastructureDependencyInstaller
 
         services.AddSingleton<IEncryptor, AesEncryptor>();
         services.AddScoped<IUserProvider, UserProvider>();
+        services.AddScoped<IExpectedVersionProvider, ExpectedVersionProvider>();
         services.AddScoped<IJsonSerializer, JsonSerializer>();
 
         return services;
