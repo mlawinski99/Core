@@ -4,6 +4,7 @@ using Core.DomainTypes;
 using Core.Logger;
 using Core.ResultPattern;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -43,6 +44,20 @@ public class ExceptionHandlingRequestDecoratorTests
         result.IsSuccess.Should().BeFalse();
         result.Code.Should().Be(ResultCode.InternalError);
         result.Error.Should().Be("Something went wrong");
+    }
+
+    [Fact]
+    public async Task Handle_WhenCommandThrowsConcurrencyException_ShouldReturnConflict()
+    {
+        var handler = Substitute.For<IRequestHandler<TestCommand, Result>>();
+        handler.Handle(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DbUpdateConcurrencyException());
+        var decorator = new ExceptionHandlingRequestDecorator<TestCommand, Result>(handler, _commandLogger);
+
+        var result = await decorator.Handle(new TestCommand("test"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Code.Should().Be(ResultCode.Conflict);
     }
 
     [Fact]

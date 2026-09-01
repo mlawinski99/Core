@@ -1,6 +1,7 @@
 using Core.DomainTypes;
 using Core.Logger;
 using Core.ResultPattern;
+using Microsoft.EntityFrameworkCore;
 
 namespace Core.CQRS.Decorators;
 
@@ -23,6 +24,11 @@ public class ExceptionHandlingRequestDecorator<TRequest, TResult>(
         {
             logger.LogWarning("Domain rule violation in {Handler}: {Message}", handlerName, ex.Message);
             return TResult.UnprocessableEntity(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            logger.LogWarning("Concurrency conflict in {Handler}", handlerName);
+            return TResult.Conflict("Entity was modified by another request");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
