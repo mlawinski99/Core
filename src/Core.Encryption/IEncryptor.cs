@@ -1,4 +1,4 @@
-namespace Core.Infrastructure;
+namespace Core.Encryption;
 
 public interface IEncryptor
 {

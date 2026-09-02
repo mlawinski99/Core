@@ -1,5 +1,5 @@
 using Core.DomainTypes;
-using Core.Infrastructure;
+using Core.Encryption;
 
 namespace Core.Identity.Domain;
 

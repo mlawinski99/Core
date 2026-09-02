@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Core.DomainTypes;
-using Core.Infrastructure.Json;
+using Core.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 

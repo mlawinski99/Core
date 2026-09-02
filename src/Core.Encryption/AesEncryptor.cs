@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 
-namespace Core.Infrastructure;
+namespace Core.Encryption;
 
 public class AesEncryptor : IEncryptor
 {

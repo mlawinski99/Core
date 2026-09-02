@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 
-namespace Core.Infrastructure;
+namespace Core.RequestContext;
 
 public class UserProvider(IHttpContextAccessor httpContextAccessor) : IUserProvider
 {

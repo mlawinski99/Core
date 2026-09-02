@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 using Core.DomainTypes;
-using Core.Infrastructure.Configuration;
+using Core.DataAccessTypes.Configuration;
 using Core.ResultPattern;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

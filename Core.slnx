@@ -11,9 +11,11 @@
     <Project Path="src/Core.DataAccessTypes/Core.DataAccessTypes.csproj" />
     <Project Path="src/Core.DateTimeProvider/Core.DateTimeProvider.csproj" />
     <Project Path="src/Core.DomainTypes/Core.DomainTypes.csproj" />
+    <Project Path="src/Core.Encryption/Core.Encryption.csproj" />
+    <Project Path="src/Core.Extensions/Core.Extensions.csproj" />
     <Project Path="src/Core.Gateway/Core.Gateway.csproj" />
     <Project Path="src/Core.Identity/Core.Identity.csproj" />
-    <Project Path="src/Core.Infrastructure/Core.Infrastructure.csproj" />
+    <Project Path="src/Core.Json/Core.Json.csproj" />
     <Project Path="src/Core.KafkaConsumer/Core.KafkaConsumer.csproj" />
     <Project Path="src/Core.KafkaProducer/Core.KafkaProducer.csproj" />
     <Project Path="src/Core.Keycloak/Core.Keycloak.csproj" />
@@ -23,6 +25,7 @@
     <Project Path="src/Core.Observability/Core.Observability.csproj" />
     <Project Path="src/Core.Outbox/Core.Outbox.csproj" />
     <Project Path="src/Core.Pager/Core.Pager.csproj" />
+    <Project Path="src/Core.RequestContext/Core.RequestContext.csproj" />
     <Project Path="src/Core.ResultPattern/Core.ResultPattern.csproj" />
     <Project Path="src/Core.Validation/Core.Validation.csproj" />
     <Project Path="src/Core.Web/Core.Web.csproj" />
@@ -41,6 +44,7 @@
     <Project Path="tests/Core.UnitTests.DomainTypes/Core.UnitTests.DomainTypes.csproj" />
     <Project Path="tests/Core.UnitTests.StartupValidation/Core.UnitTests.StartupValidation.csproj" />
     <Project Path="tests/Core.IntegrationTests.Identity/Core.IntegrationTests.Identity.csproj" />
-    <Project Path="tests/Core.UnitTests.Infrastructure/Core.UnitTests.Infrastructure.csproj" />
+    <Project Path="tests/Core.UnitTests.Encryption/Core.UnitTests.Encryption.csproj" />
+    <Project Path="tests/Core.UnitTests.Json/Core.UnitTests.Json.csproj" />
   </Folder>
 </Solution>

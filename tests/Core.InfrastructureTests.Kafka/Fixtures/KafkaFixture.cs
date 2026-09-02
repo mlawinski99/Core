@@ -1,4 +1,4 @@
-using Core.Infrastructure.Json;
+using Core.Json;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.IntegrationTests.Shared.Settings;
 using Core.KafkaConsumer;

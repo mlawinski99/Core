@@ -1,4 +1,4 @@
-using Core.Infrastructure;
+using Core.Encryption;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;
 

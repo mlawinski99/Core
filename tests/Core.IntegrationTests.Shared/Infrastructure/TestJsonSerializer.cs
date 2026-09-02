@@ -1,4 +1,4 @@
-using Core.Infrastructure.Json;
+using Core.Json;
 using Newtonsoft.Json;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;

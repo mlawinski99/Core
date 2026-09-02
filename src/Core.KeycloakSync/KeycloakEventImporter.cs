@@ -1,6 +1,6 @@
 using System.Net.Http.Headers;
-using Core.Infrastructure.Configuration;
-using Core.Infrastructure.Json;
+using Core.DataAccessTypes.Configuration;
+using Core.Json;
 using Core.Keycloak;
 using Core.Logger;
 using Microsoft.EntityFrameworkCore;

@@ -1,8 +1,8 @@
 using System.Net;
 using Core.CQRS;
-using Core.Infrastructure;
 using Core.Keycloak;
 using Core.Logger;
+using Core.RequestContext;
 using Core.ResultPattern;
 
 using static Core.Identity.Users.Errors.ErrorMessages;

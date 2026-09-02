@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace Core.Infrastructure;
+namespace Core.RequestContext;
 
 public class ExpectedVersionProvider(IHttpContextAccessor httpContextAccessor) : IExpectedVersionProvider
 {

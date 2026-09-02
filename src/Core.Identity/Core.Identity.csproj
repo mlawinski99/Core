@@ -6,14 +6,16 @@
     <ItemGroup>
       <PackageReference Include="FluentValidation" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Core.CQRS\Core.CQRS.csproj" />
       <ProjectReference Include="..\Core.DomainTypes\Core.DomainTypes.csproj" />
-      <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
+      <ProjectReference Include="..\Core.Encryption\Core.Encryption.csproj" />
       <ProjectReference Include="..\Core.Keycloak\Core.Keycloak.csproj" />
       <ProjectReference Include="..\Core.Logger\Core.Logger.csproj" />
+      <ProjectReference Include="..\Core.RequestContext\Core.RequestContext.csproj" />
       <ProjectReference Include="..\Core.ResultPattern\Core.ResultPattern.csproj" />
       <ProjectReference Include="..\Core.Web\Core.Web.csproj" />
     </ItemGroup>

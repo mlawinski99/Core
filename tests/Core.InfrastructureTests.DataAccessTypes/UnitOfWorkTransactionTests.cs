@@ -1,7 +1,7 @@
 using Core.CQRS;
 using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
-using Core.Infrastructure.Json;
+using Core.Json;
 using Core.IntegrationTests.Shared;
 using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;

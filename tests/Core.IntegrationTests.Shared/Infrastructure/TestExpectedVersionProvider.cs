@@ -1,4 +1,4 @@
-using Core.Infrastructure;
+using Core.RequestContext;
 
 namespace Core.IntegrationTests.Shared.Infrastructure;
 
