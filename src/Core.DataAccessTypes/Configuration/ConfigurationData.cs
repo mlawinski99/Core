@@ -1,4 +1,4 @@
-namespace Core.Infrastructure.Configuration;
+namespace Core.DataAccessTypes.Configuration;
 
 public class ConfigurationData
 {

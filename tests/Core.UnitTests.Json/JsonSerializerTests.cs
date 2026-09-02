@@ -1,8 +1,8 @@
-using Core.Infrastructure.Json;
+using Core.Json;
 using FluentAssertions;
 using Xunit;
 
-namespace Core.UnitTests.Infrastructure;
+namespace Core.UnitTests.Json;
 
 public class JsonSerializerTests
 {

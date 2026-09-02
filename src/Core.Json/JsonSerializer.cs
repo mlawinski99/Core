@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace Core.Infrastructure.Json;
+namespace Core.Json;
 
 public class JsonSerializer : IJsonSerializer
 {
