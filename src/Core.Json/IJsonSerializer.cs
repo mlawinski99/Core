@@ -1,4 +1,4 @@
-namespace Core.Infrastructure.Json;
+namespace Core.Json;
 
 public interface IJsonSerializer
 {

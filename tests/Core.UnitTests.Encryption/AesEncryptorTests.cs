@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
-using Core.Infrastructure;
+using Core.Encryption;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace Core.UnitTests.Infrastructure;
+namespace Core.UnitTests.Encryption;
 
 public class AesEncryptorTests
 {

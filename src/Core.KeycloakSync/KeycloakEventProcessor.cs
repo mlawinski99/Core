@@ -1,8 +1,8 @@
 using Core.DataAccessTypes;
 using Core.DateTimeProvider;
+using Core.Encryption;
 using Core.Identity.Context;
 using Core.Identity.Domain;
-using Core.Infrastructure;
 using Core.Keycloak;
 using Core.Logger;
 using Microsoft.EntityFrameworkCore;

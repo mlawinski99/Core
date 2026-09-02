@@ -1,6 +1,6 @@
 using Core.DomainTypes;
-using Core.Infrastructure;
 using Core.Logger;
+using Core.RequestContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;

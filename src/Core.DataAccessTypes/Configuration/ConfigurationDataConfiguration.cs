@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Core.Infrastructure.Configuration;
+namespace Core.DataAccessTypes.Configuration;
 
 public class ConfigurationDataConfiguration : IEntityTypeConfiguration<ConfigurationData>
 {

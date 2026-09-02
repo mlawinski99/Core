@@ -1,4 +1,4 @@
-using Core.Infrastructure.Json;
+using Core.Json;
 using Core.InfrastructureTests.Kafka.Fixtures;
 using FluentAssertions;
 using Xunit;

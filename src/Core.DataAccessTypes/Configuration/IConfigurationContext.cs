@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Core.Infrastructure.Configuration;
+namespace Core.DataAccessTypes.Configuration;
 
 public interface IConfigurationContext
 {

@@ -4,7 +4,7 @@ using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
 using Core.Identity.Users.Commands;
 using Core.Identity.Web;
-using Core.Infrastructure;
+using Core.RequestContext;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.Keycloak;
 using Core.Logger;

@@ -1,4 +1,4 @@
-using Core.Infrastructure.Extensions;
+using Core.Extensions;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.PostgreSql;

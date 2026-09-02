@@ -1,5 +1,5 @@
 using Confluent.Kafka;
-using Core.Infrastructure.Json;
+using Core.Json;
 using Core.Logger;
 using Microsoft.Extensions.Options;
 
