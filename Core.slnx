@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/src/">
     <Project Path="src/Core.BackgroundJobs/Core.BackgroundJobs.csproj" />
+    <Project Path="src/Core.Caching/Core.Caching.csproj" />
     <Project Path="src/Core.CQRS.Decorators/Core.CQRS.Decorators.csproj" />
     <Project Path="src/Core.CQRS/Core.CQRS.csproj" />
     <Project Path="src/Core.DataAccessTypes/Core.DataAccessTypes.csproj" />
@@ -31,6 +32,7 @@
     <Project Path="src/Core.Web/Core.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Core.InfrastructureTests.Caching/Core.InfrastructureTests.Caching.csproj" />
     <Project Path="tests/Core.InfrastructureTests.DataAccessTypes/Core.InfrastructureTests.DataAccessTypes.csproj" />
     <Project Path="tests/Core.InfrastructureTests.Kafka/Core.InfrastructureTests.Kafka.csproj" />
     <Project Path="tests/Core.InfrastructureTests.KeycloakIntegration/Core.InfrastructureTests.KeycloakIntegration.csproj" />

@@ -13,6 +13,7 @@
         <PackageReference Include="xunit" />
         <PackageReference Include="Testcontainers.Keycloak" />
         <PackageReference Include="Testcontainers.PostgreSql" />
+        <PackageReference Include="Testcontainers.Redis" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Newtonsoft.Json" />
     </ItemGroup>
