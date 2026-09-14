@@ -22,6 +22,7 @@ public static class CqrsDecoratorsDependencyInstaller
 
     private static void RegisterQueryDecorators(this IServiceCollection services)
     {
+        services.TryDecorate(typeof(IQueryHandler<,>), typeof(CachingQueryDecorator<,>));
         services.TryDecorate(typeof(IQueryHandler<,>), typeof(ValidationQueryDecorator<,>));
         services.TryDecorate(typeof(IQueryHandler<,>), typeof(ExceptionHandlingQueryDecorator<,>));
         services.TryDecorate(typeof(IQueryHandler<,>), typeof(LoggingQueryDecorator<,>));
