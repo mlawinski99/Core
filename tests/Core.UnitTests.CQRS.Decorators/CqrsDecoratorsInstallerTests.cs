@@ -1,3 +1,4 @@
+using Core.Caching;
 using Core.CQRS;
 using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
@@ -6,6 +7,7 @@ using Core.ResultPattern;
 using Core.Tests.Shared;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Xunit;
 
 namespace Core.UnitTests.CQRS.Decorators;
@@ -37,6 +39,7 @@ public class CqrsDecoratorsInstallerTests
         var services = new ServiceCollection();
         services.AddSingleton(typeof(IAppLogger<>), typeof(TestLogger<>));
         services.AddScoped<IUnitOfWork, TestUnitOfWork>();
+        services.AddScoped(_ => Substitute.For<ICacheService>());
         services.AddCqrs(typeof(TestCommandHandler).Assembly);
         services.AddCqrsDecorators();
 
