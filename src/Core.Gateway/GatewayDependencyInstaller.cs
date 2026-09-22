@@ -1,11 +1,12 @@
 using System.Threading.RateLimiting;
+using Core.Extensions;
 using Core.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Core.Gateway;
@@ -17,7 +18,7 @@ public static class GatewayDependencyInstaller
         IConfiguration configuration)
     {
         services.AddReverseProxy()
-            .LoadFromConfig(configuration.GetSection("Gateaway"));
+            .LoadFromConfig(configuration.GetSection("Gateway"));
 
         services.AddGatewayAuthentication(configuration);
         services.AddGatewayRateLimiting(configuration);
@@ -69,23 +70,52 @@ public static class GatewayDependencyInstaller
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var rateLimitSection = configuration.GetSection("RateLimit");
-        var permitLimit = rateLimitSection.GetValue("PermitLimit", 100);
-        var windowSeconds = rateLimitSection.GetValue("WindowSeconds", 60);
+        var rateLimitSection = configuration.GetSection(RateLimitOptions.SectionName);
+
+        services.AddOptions<RateLimitOptions>()
+            .Bind(rateLimitSection)
+            .Validate(o => o.PerUser.PermitLimit > 0, "RateLimit:PerUser:PermitLimit must be greater than zero")
+            .Validate(o => o.PerUser.Window > TimeSpan.Zero, "RateLimit:PerUser:Window must be greater than zero")
+            .Validate(_ => IsWrittenAsTimeSpan(rateLimitSection, nameof(RateLimitOptions.PerUser)),
+                WindowFormatMessage(nameof(RateLimitOptions.PerUser)))
+            .Validate(o => o.PerIpAddress.PermitLimit > 0, "RateLimit:PerIpAddress:PermitLimit must be greater than zero")
+            .Validate(o => o.PerIpAddress.Window > TimeSpan.Zero, "RateLimit:PerIpAddress:Window must be greater than zero")
+            .Validate(_ => IsWrittenAsTimeSpan(rateLimitSection, nameof(RateLimitOptions.PerIpAddress)),
+                WindowFormatMessage(nameof(RateLimitOptions.PerIpAddress)))
+            .ValidateOnStart();
 
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            options.AddFixedWindowLimiter(GatewayPolicyNames.FixedRateLimit, limiterOptions =>
+            options.AddPolicy(GatewayPolicyNames.FixedRateLimit, httpContext =>
             {
-                limiterOptions.PermitLimit = permitLimit;
-                limiterOptions.Window = TimeSpan.FromSeconds(windowSeconds);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0;
+                var rateLimitOptions = httpContext.RequestServices
+                    .GetRequiredService<IOptions<RateLimitOptions>>().Value;
+
+                var partition = GatewayRateLimitPartitioner.Resolve(httpContext, rateLimitOptions);
+
+                return RateLimitPartition.GetFixedWindowLimiter(partition.Key, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = partition.Window.PermitLimit,
+                    Window = partition.Window.Window,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0,
+                });
             });
         });
 
         return services;
     }
+
+    private static bool IsWrittenAsTimeSpan(IConfiguration rateLimitSection, string partition)
+    {
+        var window = rateLimitSection[$"{partition}:{nameof(RateLimitWindowOptions.Window)}"];
+
+        // null - use default
+        return window is null || window.IsTimeSpan();
+    }
+
+    private static string WindowFormatMessage(string partition) =>
+        $"RateLimit:{partition}:Window must be written as a TimeSpan, for example \"00:01:00\" for one minute.";
 }
