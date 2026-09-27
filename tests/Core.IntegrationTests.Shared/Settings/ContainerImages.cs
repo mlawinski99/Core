@@ -6,4 +6,5 @@ public static class ContainerImages
     public const string Postgres = "postgres:18";
     public const string Keycloak = "quay.io/keycloak/keycloak:24.0";
     public const string Redis = "redis:8";
+    public const string Garage = "dxflrs/garage:v2.4.1";
 }

@@ -4,6 +4,7 @@ using Core.Identity.Domain;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
 using Core.Outbox;
+using Core.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -12,7 +13,7 @@ namespace Core.IntegrationTests.Shared.Infrastructure;
 public class TestDbContext(
     DbContextOptions<TestDbContext> options,
     IEnumerable<IInterceptor> interceptors)
-    : BaseDbContext(options, interceptors), IUserContext, IKeycloakEventsContext, IOutbox
+    : BaseDbContext(options, interceptors), IUserContext, IKeycloakEventsContext, IOutbox, IFileStore
 {
     public DbSet<KeycloakAdminEvent> KeycloakAdminEvents { get; set; }
     public DbSet<User> Users { get; set; }
@@ -24,6 +25,7 @@ public class TestDbContext(
     public DbSet<TestEntity> TestEntities { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
     public DbSet<ProcessedOutboxMessage> ProcessedOutboxMessages { get; set; }
+    public DbSet<StoredFile> StoredFiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,5 +74,6 @@ public class TestDbContext(
 
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessedOutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new StoredFileConfiguration());
     }
 }
