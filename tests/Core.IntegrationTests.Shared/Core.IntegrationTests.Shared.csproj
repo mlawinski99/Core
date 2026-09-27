@@ -25,6 +25,7 @@
         <ProjectReference Include="..\..\src\Core.Keycloak\Core.Keycloak.csproj" />
         <ProjectReference Include="..\..\src\Core.KeycloakSync\Core.KeycloakSync.csproj" />
         <ProjectReference Include="..\..\src\Core.Outbox\Core.Outbox.csproj" />
+        <ProjectReference Include="..\..\src\Core.Storage\Core.Storage.csproj" />
         <ProjectReference Include="..\Core.Tests.Shared\Core.Tests.Shared.csproj" />
     </ItemGroup>
 
