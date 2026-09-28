@@ -51,4 +51,23 @@ public class StorageDependencyInstallerTests
         // Assert
         options.AllowedContentTypes.Should().BeEquivalentTo("text/csv");
     }
+
+    [Fact]
+    public void AddStorage_WithMarkUploadedCronRunningLessOftenThanPendingExpiration_ShouldFailValidation()
+    {
+        // Arrange
+        _s3Settings["StoredFiles:MarkUploadedCron"] = "0 3 * * *";
+        _s3Settings["StoredFiles:PendingExpiration"] = "12:00:00";
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(_s3Settings).Build();
+        using var provider = new ServiceCollection()
+            .AddStorage<TestDbContext>(configuration)
+            .BuildServiceProvider();
+
+        // Act
+        var resolve = () => provider.GetRequiredService<IOptions<StoredFileOptions>>().Value;
+
+        // Assert
+        resolve.Should().Throw<OptionsValidationException>()
+            .WithMessage("*StoredFiles:MarkUploadedCron must run more often*");
+    }
 }

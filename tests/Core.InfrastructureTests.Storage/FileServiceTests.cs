@@ -44,7 +44,7 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
         _s3Client = StorageDependencyInstaller.CreateClient(options);
         // TestDateTimeProvider cant be used here - real time check
         _storageService = new S3StorageService(_s3Client, new Core.DateTimeProvider.DateTimeProvider(), Options.Create(options), fileOptions);
-        _fileService = new FileService(Db, _storageService, fileOptions);
+        _fileService = new FileService(Db, _storageService, DateTimeProvider, UserProvider, fileOptions);
 
         await Db.StoredFiles.IgnoreQueryFilters().ExecuteDeleteAsync();
     }
@@ -114,7 +114,7 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
         await _httpClient.PostAsync(upload.Upload.Url, form);
 
         // Act
-        var result = await _fileService.Confirm(upload.FileId, _userId);
+        var result = await _fileService.Confirm(upload.FileId);
         await Db.SaveChangesAsync();
 
         // Assert
@@ -126,6 +126,32 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
     }
 
     [Fact]
+    public async Task Confirm_WithPendingFileOlderThanPendingExpiration_ShouldReturnUnprocessableEntityAndStayPending()
+    {
+        // Arrange
+        var upload = _fileService.CreateUpload("notes.txt", "text/plain").Data!;
+        await Db.SaveChangesAsync();
+        var key = await Db.StoredFiles.Where(f => f.Id == upload.FileId).Select(f => f.Key).FirstAsync();
+        await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = GarageFixture.Bucket,
+            Key = key,
+            ContentBody = "uploaded",
+            ContentType = "text/plain"
+        });
+        DateTimeProvider.UtcNow = DateTimeProvider.UtcNow.AddHours(25);
+
+        // Act
+        var result = await _fileService.Confirm(upload.FileId);
+        await Db.SaveChangesAsync();
+
+        // Assert
+        result.Code.Should().Be(ResultCode.UnprocessableEntity);
+        var file = await Db.StoredFiles.AsNoTracking().FirstAsync(f => f.Id == upload.FileId);
+        file.Status.Should().Be(StoredFileStatus.Pending);
+    }
+
+    [Fact]
     public async Task Confirm_WithoutUploadedObject_ShouldReturnUnprocessableEntityAndStayPending()
     {
         // Arrange
@@ -133,7 +159,7 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
         await Db.SaveChangesAsync();
 
         // Act
-        var result = await _fileService.Confirm(upload.FileId, _userId);
+        var result = await _fileService.Confirm(upload.FileId);
         await Db.SaveChangesAsync();
 
         // Assert
@@ -156,11 +182,11 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
             ContentBody = "uploaded",
             ContentType = "text/plain"
         });
-        await _fileService.Confirm(upload.FileId, _userId);
+        await _fileService.Confirm(upload.FileId);
         await Db.SaveChangesAsync();
 
         // Act
-        var result = await _fileService.Confirm(upload.FileId, _userId);
+        var result = await _fileService.Confirm(upload.FileId);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -180,9 +206,10 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
             ContentBody = "uploaded",
             ContentType = "text/plain"
         });
+        UserProvider.UserId = Guid.NewGuid();
 
         // Act
-        var result = await _fileService.Confirm(upload.FileId, Guid.NewGuid());
+        var result = await _fileService.Confirm(upload.FileId);
 
         // Assert
         result.Code.Should().Be(ResultCode.NotFound);
@@ -192,7 +219,22 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
     public async Task Confirm_WithUnknownFile_ShouldReturnNotFound()
     {
         // Act
-        var result = await _fileService.Confirm(Guid.NewGuid(), _userId);
+        var result = await _fileService.Confirm(Guid.NewGuid());
+
+        // Assert
+        result.Code.Should().Be(ResultCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Confirm_WithoutCurrentUser_ShouldReturnNotFound()
+    {
+        // Arrange
+        var upload = _fileService.CreateUpload("notes.txt", "text/plain").Data!;
+        await Db.SaveChangesAsync();
+        UserProvider.UserId = null;
+
+        // Act
+        var result = await _fileService.Confirm(upload.FileId);
 
         // Assert
         result.Code.Should().Be(ResultCode.NotFound);
@@ -212,7 +254,7 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
             ContentBody = "uploaded",
             ContentType = "text/plain"
         });
-        await _fileService.Confirm(upload.FileId, _userId);
+        await _fileService.Confirm(upload.FileId);
         await Db.SaveChangesAsync();
 
         // Act
@@ -263,6 +305,24 @@ public class FileServiceTests(PostgresFixture postgresFixture, GarageFixture gar
         file.IsDeleted.Should().BeTrue();
         var exists = await _storageService.GetMetadata(key) is not null;
         exists.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_WithFileOfAnotherUser_ShouldReturnNotFoundAndKeepRow()
+    {
+        // Arrange
+        var upload = _fileService.CreateUpload("notes.txt", "text/plain").Data!;
+        await Db.SaveChangesAsync();
+        UserProvider.UserId = Guid.NewGuid();
+
+        // Act
+        var result = await _fileService.Delete(upload.FileId);
+        await Db.SaveChangesAsync();
+
+        // Assert
+        result.Code.Should().Be(ResultCode.NotFound);
+        var file = await Db.StoredFiles.IgnoreQueryFilters().AsNoTracking().FirstAsync(f => f.Id == upload.FileId);
+        file.IsDeleted.Should().BeFalse();
     }
 
     [Fact]

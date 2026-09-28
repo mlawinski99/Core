@@ -26,17 +26,22 @@ internal class MarkUploadedFilesJob<TContext>(
     {
         var createdAfterUtc = dateTimeProvider.UtcNow - _options.PendingExpiration;
 
-        var files = await db.StoredFiles
+        var ids = await db.StoredFiles
             .Where(f => f.Status == StoredFileStatus.Pending && f.DateCreatedUtc >= createdAfterUtc)
             .OrderBy(f => f.DateCreatedUtc)
+            .Select(f => f.Id)
             .ToListAsync(cancellationToken);
 
         var markedIds = new List<Guid>();
 
         try
         {
-            foreach (var batch in files.Chunk(_options.BatchSize))
+            foreach (var batchIds in ids.Chunk(_options.BatchSize))
             {
+                var batch = await db.StoredFiles
+                    .Where(f => batchIds.Contains(f.Id))
+                    .ToListAsync(cancellationToken);
+
                 var batchMarkedIds = new List<Guid>();
                 foreach (var file in batch)
                 {
@@ -45,6 +50,7 @@ internal class MarkUploadedFilesJob<TContext>(
                 }
 
                 await db.SaveChangesAsync(cancellationToken);
+                db.ChangeTracker.Clear();
 
                 markedIds.AddRange(batchMarkedIds);
             }

@@ -3,6 +3,7 @@ using Amazon.S3;
 using Core.BackgroundJobs;
 using Core.DateTimeProvider;
 using Core.Extensions;
+using Cronos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +58,9 @@ public static class StorageDependencyInstaller
                 "StoredFiles:PendingExpiration must be written as a TimeSpan, for example \"1.00:00:00\" for one day")
             .Validate<IOptions<S3Options>>((o, s3) => o.PendingExpiration > s3.Value.DefaultUrlExpiration,
                 "StoredFiles:PendingExpiration must be greater than S3:DefaultUrlExpiration")
+            // every upload whose Confirm never arrives must get a mark attempt before it expires
+            .Validate(o => !CronValidator.IsValid(o.MarkUploadedCron) || IntervalBetweenRuns(o.MarkUploadedCron) < o.PendingExpiration,
+                "StoredFiles:MarkUploadedCron must run more often than StoredFiles:PendingExpiration")
             .ValidateOnStart();
 
         services.AddSingleton<IAmazonS3>(sp => CreateClient(sp.GetRequiredService<IOptions<S3Options>>().Value));
@@ -73,6 +77,20 @@ public static class StorageDependencyInstaller
             CleanupStoredFilesJob<TContext>.JobId, sp => sp.GetRequiredService<IOptions<StoredFileOptions>>().Value.CleanupCron);
 
         return services;
+    }
+
+    // time between the next two runs
+    private static TimeSpan IntervalBetweenRuns(string cron)
+    {
+        var format = cron.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length == 6
+            ? CronFormat.IncludeSeconds
+            : CronFormat.Standard;
+
+        var expression = CronExpression.Parse(cron, format);
+        var nextRun = expression.GetNextOccurrence(DateTime.UtcNow)!.Value;
+        var runAfterNext = expression.GetNextOccurrence(nextRun)!.Value;
+
+        return runAfterNext - nextRun;
     }
 
     internal static AmazonS3Client CreateClient(S3Options options) =>

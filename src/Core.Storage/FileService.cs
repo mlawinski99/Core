@@ -1,3 +1,5 @@
+using Core.DateTimeProvider;
+using Core.RequestContext;
 using Core.ResultPattern;
 using Core.Storage.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +10,8 @@ namespace Core.Storage;
 internal class FileService(
     IFileStore fileStore,
     IStorageService storageService,
+    IDateTimeProvider dateTimeProvider,
+    IUserProvider userProvider,
     IOptions<StoredFileOptions> options)
     : IFileService
 {
@@ -34,10 +38,13 @@ internal class FileService(
         return Result<FileUpload>.Success(new FileUpload(id, presignedUpload));
     }
 
-    public async Task<Result> Confirm(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<Result> Confirm(Guid fileId, CancellationToken cancellationToken = default)
     {
+        if (userProvider.UserId is null)
+            return Result.NotFound(ErrorMessages.FileNotFound);
+
         var file = await fileStore.StoredFiles
-            .FirstOrDefaultAsync(f => f.Id == fileId && f.CreatedBy == userId, cancellationToken);
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.CreatedBy == userProvider.UserId, cancellationToken);
         if (file is null)
             return Result.NotFound(ErrorMessages.FileNotFound);
 
@@ -61,10 +68,14 @@ internal class FileService(
     }
 
     // soft delete; the object is removed from storage by CleanupStoredFilesJob
+    // @TODO == userId || hasPermission in future
     public async Task<Result> Delete(Guid fileId, CancellationToken cancellationToken = default)
     {
+        if (userProvider.UserId is null)
+            return Result.NotFound(ErrorMessages.FileNotFound);
+
         var file = await fileStore.StoredFiles
-            .FirstOrDefaultAsync(f => f.Id == fileId, cancellationToken);
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.CreatedBy == userProvider.UserId, cancellationToken);
         if (file is null)
             return Result.NotFound(ErrorMessages.FileNotFound);
 
@@ -75,6 +86,9 @@ internal class FileService(
 
     internal async Task<Result> MarkUploaded(StoredFile file, CancellationToken cancellationToken)
     {
+        if (file.DateCreatedUtc < dateTimeProvider.UtcNow - _options.PendingExpiration)
+            return Result.UnprocessableEntity(ErrorMessages.FileNotUploaded);
+
         var metadata = await storageService.GetMetadata(file.Key, cancellationToken);
         if (metadata is null)
             return Result.UnprocessableEntity(ErrorMessages.FileNotUploaded);
