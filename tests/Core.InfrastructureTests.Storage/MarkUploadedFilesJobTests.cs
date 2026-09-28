@@ -31,7 +31,7 @@ public class MarkUploadedFilesJobTests(PostgresFixture postgresFixture, GarageFi
         _storageService = new S3StorageService(_s3Client, DateTimeProvider, Options.Create(options), Options.Create(_options));
         _job = new MarkUploadedFilesJob<TestDbContext>(
             Db,
-            new FileService(Db, _storageService, Options.Create(_options)),
+            new FileService(Db, _storageService, DateTimeProvider, UserProvider, Options.Create(_options)),
             new TestLogger<MarkUploadedFilesJob<TestDbContext>>(),
             DateTimeProvider,
             Options.Create(_options));

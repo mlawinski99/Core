@@ -18,11 +18,14 @@ internal class CleanupStoredFilesJob<TContext>(
 {
     public const string JobId = "cleanup-stored-files";
 
+    // marking and cleanup cant act on the same pending file - need delay
+    private static readonly TimeSpan PendingCleanupDelay = TimeSpan.FromHours(1);
+
     private readonly StoredFileOptions _options = options.Value;
 
     public async Task Run(CancellationToken cancellationToken)
     {
-        var pendingCreatedBeforeUtc = dateTimeProvider.UtcNow - _options.PendingExpiration;
+        var pendingCreatedBeforeUtc = dateTimeProvider.UtcNow - _options.PendingExpiration - PendingCleanupDelay;
 
         var files = await db.StoredFiles
             .IgnoreQueryFilters()

@@ -84,7 +84,7 @@ public class CleanupStoredFilesJobTests(PostgresFixture postgresFixture, GarageF
     }
 
     [Fact]
-    public async Task Run_WithPendingFileOlderThanExpiration_ShouldDeleteObjectAndRow()
+    public async Task Run_WithPendingFileOlderThanExpirationAndCleanupDelay_ShouldDeleteObjectAndRow()
     {
         // Arrange
         var id = Guid.NewGuid();
@@ -95,7 +95,7 @@ public class CleanupStoredFilesJobTests(PostgresFixture postgresFixture, GarageF
             FileName = "abandoned.txt",
             ContentType = "text/plain",
             Status = StoredFileStatus.Pending,
-            DateCreatedUtc = DateTimeProvider.UtcNow.AddHours(-25)
+            DateCreatedUtc = DateTimeProvider.UtcNow.AddHours(-26)
         });
         await Db.SaveChangesAsync();
         await _s3Client.PutObjectAsync(new PutObjectRequest
@@ -114,6 +114,30 @@ public class CleanupStoredFilesJobTests(PostgresFixture postgresFixture, GarageF
         rowExists.Should().BeFalse();
         var objectExists = await _storageService.GetMetadata(id.ToString()) is not null;
         objectExists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Run_WithExpiredPendingFileInsideCleanupDelay_ShouldKeepIt()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        Db.StoredFiles.Add(new StoredFile
+        {
+            Id = id,
+            Key = id.ToString(),
+            FileName = "expired.txt",
+            ContentType = "text/plain",
+            Status = StoredFileStatus.Pending,
+            DateCreatedUtc = DateTimeProvider.UtcNow.AddHours(-24).AddMinutes(-30)
+        });
+        await Db.SaveChangesAsync();
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var rowExists = await Db.StoredFiles.AnyAsync(f => f.Id == id);
+        rowExists.Should().BeTrue();
     }
 
     [Fact]

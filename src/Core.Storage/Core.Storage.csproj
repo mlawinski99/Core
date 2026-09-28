@@ -2,6 +2,7 @@
 
     <ItemGroup>
         <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="Cronos" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
@@ -16,6 +17,7 @@
         <ProjectReference Include="..\Core.DomainTypes\Core.DomainTypes.csproj" />
         <ProjectReference Include="..\Core.Extensions\Core.Extensions.csproj" />
         <ProjectReference Include="..\Core.Logger\Core.Logger.csproj" />
+        <ProjectReference Include="..\Core.RequestContext\Core.RequestContext.csproj" />
         <ProjectReference Include="..\Core.ResultPattern\Core.ResultPattern.csproj" />
     </ItemGroup>
 
