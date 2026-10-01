@@ -173,4 +173,47 @@ public class MarkUploadedFilesJobTests(PostgresFixture postgresFixture, GarageFi
             .ToListAsync();
         markedIds.Should().BeEquivalentTo(uploadedIds);
     }
+
+    [Fact]
+    public async Task Run_WithFileThatFailsToMark_ShouldMarkOtherFiles()
+    {
+        // Arrange
+        var failingId = Guid.NewGuid();
+        var uploadedId = Guid.NewGuid();
+        Db.StoredFiles.AddRange(
+            new StoredFile
+            {
+                Id = failingId,
+                Key = "", // rejected by the S3 client, so marking throws
+                FileName = "notes.txt",
+                ContentType = "text/plain",
+                Status = StoredFileStatus.Pending,
+                DateCreatedUtc = DateTimeProvider.UtcNow.AddMinutes(-1)
+            },
+            new StoredFile
+            {
+                Id = uploadedId,
+                Key = uploadedId.ToString(),
+                FileName = "notes.txt",
+                ContentType = "text/plain",
+                Status = StoredFileStatus.Pending,
+                DateCreatedUtc = DateTimeProvider.UtcNow
+            });
+        await Db.SaveChangesAsync();
+        await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = GarageFixture.Bucket,
+            Key = uploadedId.ToString(),
+            ContentBody = "uploaded",
+            ContentType = "text/plain"
+        });
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var statuses = await Db.StoredFiles.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.Status);
+        statuses[failingId].Should().Be(StoredFileStatus.Pending);
+        statuses[uploadedId].Should().Be(StoredFileStatus.Uploaded);
+    }
 }

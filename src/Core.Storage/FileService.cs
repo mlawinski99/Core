@@ -53,6 +53,7 @@ internal class FileService(
             : Result.Success;
     }
 
+    // @TODO permissions check
     public async Task<Result<PresignedUrl>> GetDownloadUrl(Guid fileId, CancellationToken cancellationToken = default)
     {
         var key = await fileStore.StoredFiles
