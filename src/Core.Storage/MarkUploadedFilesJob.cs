@@ -45,8 +45,15 @@ internal class MarkUploadedFilesJob<TContext>(
                 var batchMarkedIds = new List<Guid>();
                 foreach (var file in batch)
                 {
-                    if ((await fileService.MarkUploaded(file, cancellationToken)).IsSuccess)
-                        batchMarkedIds.Add(file.Id);
+                    try
+                    {
+                        if ((await fileService.MarkUploaded(file, cancellationToken)).IsSuccess)
+                            batchMarkedIds.Add(file.Id);
+                    }
+                    catch (Exception e)
+                    {
+                        logger.LogError(e, "Marking stored file {FileId} as uploaded failed", file.Id);
+                    }
                 }
 
                 await db.SaveChangesAsync(cancellationToken);
