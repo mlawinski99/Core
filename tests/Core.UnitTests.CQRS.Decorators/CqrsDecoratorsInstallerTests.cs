@@ -4,42 +4,71 @@ using Core.CQRS.Decorators;
 using Core.DataAccessTypes;
 using Core.Logger;
 using Core.ResultPattern;
-using Core.Tests.Shared;
+using Core.Validation;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
 using Xunit;
 
 namespace Core.UnitTests.CQRS.Decorators;
 
 public class CqrsDecoratorsInstallerTests
 {
+    private static readonly string[] ExpectedCommandPipeline =
+    [
+        nameof(LoggingRequestDecorator<,>),
+        nameof(ValidationRequestDecorator<,>),
+        nameof(TransactionCommandDecorator<,>),
+        nameof(RecordingCommandHandler),
+        nameof(LoggingRequestDecorator<,>)
+    ];
+
+    private static readonly string[] ExpectedQueryPipeline =
+    [
+        nameof(LoggingRequestDecorator<,>),
+        nameof(ValidationRequestDecorator<,>),
+        nameof(CachingQueryDecorator<,>),
+        nameof(RecordingQueryHandler),
+        nameof(LoggingRequestDecorator<,>)
+    ];
+
     [Fact]
-    public void CommandHandler_ShouldResolveThroughDecoratorChain()
+    public async Task CommandHandler_WithAllDecorators_ShouldRunInPipelineOrder()
     {
+        // Arrange
         using var scope = BuildProvider().CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<RecordingCommand, Result>>();
+        var calls = scope.ServiceProvider.GetRequiredService<List<string>>();
 
-        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<TestCommand, Result>>();
+        // Act
+        await handler.Handle(new RecordingCommand(), CancellationToken.None);
 
-        handler.Should().BeOfType<LoggingCommandDecorator<TestCommand, Result>>();
+        // Assert
+        calls.Should().Equal(ExpectedCommandPipeline);
     }
 
     [Fact]
-    public void QueryHandler_ShouldResolveThroughDecoratorChain()
+    public async Task QueryHandler_WithAllDecorators_ShouldRunInPipelineOrder()
     {
+        // Arrange
         using var scope = BuildProvider().CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<IQueryHandler<RecordingQuery, Result<int>>>();
+        var calls = scope.ServiceProvider.GetRequiredService<List<string>>();
 
-        var handler = scope.ServiceProvider.GetRequiredService<IQueryHandler<TestQuery, Result<int>>>();
+        // Act
+        await handler.Handle(new RecordingQuery(), CancellationToken.None);
 
-        handler.Should().BeOfType<LoggingQueryDecorator<TestQuery, Result<int>>>();
+        // Assert
+        calls.Should().Equal(ExpectedQueryPipeline);
     }
 
     private static ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
-        services.AddSingleton(typeof(IAppLogger<>), typeof(TestLogger<>));
-        services.AddScoped<IUnitOfWork, TestUnitOfWork>();
-        services.AddScoped(_ => Substitute.For<ICacheService>());
+        services.AddSingleton(new List<string>());
+        services.AddSingleton(typeof(IAppLogger<>), typeof(RecordingLogger<>));
+        services.AddSingleton(typeof(IValidator<>), typeof(RecordingValidator<>));
+        services.AddScoped<IUnitOfWork, RecordingUnitOfWork>();
+        services.AddScoped<ICacheService, RecordingCacheService>();
         services.AddCqrs(typeof(TestCommandHandler).Assembly);
         services.AddCqrsDecorators();
 
