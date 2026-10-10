@@ -6,7 +6,7 @@ public static class JsonDependencyInstaller
 {
     public static IServiceCollection AddJson(this IServiceCollection services)
     {
-        services.AddScoped<IJsonSerializer, JsonSerializer>();
+        services.AddSingleton<IJsonSerializer, JsonSerializer>();
 
         return services;
     }

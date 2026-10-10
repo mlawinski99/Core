@@ -28,9 +28,7 @@ public class KafkaFixture : IAsyncLifetime
         var configuration = config ?? new KafkaProducerConfiguration
         {
             BootstrapServers = BootstrapServers,
-            EnableIdempotence = true,
-            MessageTimeoutMs = 5000,
-            Acks = "all"
+            MessageTimeoutMs = 5000
         };
 
         return new KafkaProducer<T>(
