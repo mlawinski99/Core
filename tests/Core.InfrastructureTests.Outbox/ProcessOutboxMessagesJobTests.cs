@@ -134,7 +134,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
     }
 
     [Fact]
-    public async Task Run_WithMultipleMessages_ShouldProcessInChronologicalOrder()
+    public async Task Run_WithMultipleMessagesForSameAggregate_ShouldProcessInChronologicalOrder()
     {
         // Arrange
         var older = CreateUnprocessedMessage();
@@ -142,6 +142,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         older.Type = "older-topic";
 
         var newer = CreateUnprocessedMessage();
+        newer.AggregateId = older.AggregateId;
         newer.OccurredOnUtc = DateTimeProvider.UtcNow;
         newer.Type = "newer-topic";
 

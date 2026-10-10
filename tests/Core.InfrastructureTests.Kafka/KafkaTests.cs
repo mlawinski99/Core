@@ -42,6 +42,21 @@ public class KafkaTests(KafkaFixture kafkaFixture)
     }
 
     [Fact]
+    public async Task ProduceAsync_WhenCancelled_ShouldThrowInsteadOfReportingFailure()
+    {
+        // Arrange
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act
+        var act = async () => await producer.ProduceAsync("cancelled-topic", new TestMessage { Id = 1, Content = "Test" }, "key", cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
     public async Task StartAsync_ShouldInvokeHandlerForEachMessage()
     {
         // Arrange
