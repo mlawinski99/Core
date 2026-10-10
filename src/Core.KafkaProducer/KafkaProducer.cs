@@ -85,6 +85,7 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
             _producer = BuildProducer();
         }
 
+        faulted.Flush(TimeSpan.FromSeconds(5));
         faulted.Dispose();
     }
 }
