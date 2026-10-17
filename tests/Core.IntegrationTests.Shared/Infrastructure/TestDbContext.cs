@@ -4,6 +4,9 @@ using Core.Identity.Domain;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
 using Core.Outbox;
+using Core.Permissions;
+using Core.Permissions.Configurations;
+using Core.Permissions.Entities;
 using Core.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -13,7 +16,7 @@ namespace Core.IntegrationTests.Shared.Infrastructure;
 public class TestDbContext(
     DbContextOptions<TestDbContext> options,
     IEnumerable<IInterceptor> interceptors)
-    : BaseDbContext(options, interceptors), IUserContext, IKeycloakEventsContext, IOutbox, IFileStore
+    : BaseDbContext(options, interceptors), IUserContext, IKeycloakEventsContext, IOutbox, IFileStore, IPermissionContext
 {
     public DbSet<KeycloakAdminEvent> KeycloakAdminEvents { get; set; }
     public DbSet<User> Users { get; set; }
@@ -26,6 +29,10 @@ public class TestDbContext(
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
     public DbSet<ProcessedOutboxMessage> ProcessedOutboxMessages { get; set; }
     public DbSet<StoredFile> StoredFiles { get; set; }
+    public DbSet<UserPermission> UserPermissions { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<RolePermission> RolePermissions { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,5 +82,9 @@ public class TestDbContext(
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessedOutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new StoredFileConfiguration());
+        modelBuilder.ApplyConfiguration(new UserPermissionConfiguration());
+        modelBuilder.ApplyConfiguration(new RoleConfiguration());
+        modelBuilder.ApplyConfiguration(new RolePermissionConfiguration());
+        modelBuilder.ApplyConfiguration(new UserRoleConfiguration());
     }
 }

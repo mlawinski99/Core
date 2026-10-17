@@ -26,6 +26,7 @@
     <Project Path="src/Core.Observability/Core.Observability.csproj" />
     <Project Path="src/Core.Outbox/Core.Outbox.csproj" />
     <Project Path="src/Core.Pager/Core.Pager.csproj" />
+    <Project Path="src/Core.Permissions/Core.Permissions.csproj" />
     <Project Path="src/Core.RequestContext/Core.RequestContext.csproj" />
     <Project Path="src/Core.ResultPattern/Core.ResultPattern.csproj" />
     <Project Path="src/Core.Storage/Core.Storage.csproj" />
@@ -48,6 +49,7 @@
     <Project Path="tests/Core.UnitTests.DomainTypes/Core.UnitTests.DomainTypes.csproj" />
     <Project Path="tests/Core.UnitTests.StartupValidation/Core.UnitTests.StartupValidation.csproj" />
     <Project Path="tests/Core.IntegrationTests.Identity/Core.IntegrationTests.Identity.csproj" />
+    <Project Path="tests/Core.IntegrationTests.Permissions/Core.IntegrationTests.Permissions.csproj" />
     <Project Path="tests/Core.UnitTests.Encryption/Core.UnitTests.Encryption.csproj" />
     <Project Path="tests/Core.UnitTests.Gateway/Core.UnitTests.Gateway.csproj" />
     <Project Path="tests/Core.UnitTests.Json/Core.UnitTests.Json.csproj" />
