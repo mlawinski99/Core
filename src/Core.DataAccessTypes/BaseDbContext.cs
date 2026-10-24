@@ -107,6 +107,8 @@ public abstract class BaseDbContext(
         {
             if (result is { IsSuccess: true } && _firstFailure is null)
             {
+                await SaveChangesAsync(cancellationToken);
+
                 // @TODO retry strategy
                 await transaction.CommitAsync(cancellationToken);
 
