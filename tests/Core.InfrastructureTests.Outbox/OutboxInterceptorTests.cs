@@ -42,6 +42,24 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
     }
 
     [Fact]
+    public async Task SavingChanges_WithBlockingEvent_ShouldCopyIsBlockingToOutboxMessage()
+    {
+        // Arrange
+        var entity = new TestEntity { Name = "Test" };
+        entity.RaiseBlockingEvent();
+        Db.TestEntities.Add(entity);
+
+        // Act
+        await Db.SaveChangesAsync();
+
+        // Assert
+        var message = await Db.OutboxMessages
+            .AsNoTracking()
+            .SingleAsync(x => x.AggregateId == entity.Id);
+        message.IsBlocking.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task SavingChanges_WhenSaveFailsAndIsRetried_ShouldAddOutboxMessagesOnlyOnce()
     {
         // Arrange
