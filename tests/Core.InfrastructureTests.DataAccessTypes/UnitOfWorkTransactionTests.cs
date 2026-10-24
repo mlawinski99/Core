@@ -176,7 +176,6 @@ public class TestCommandAHandler(TestDbContext db, IRequestDispatcher dispatcher
         }
 
         db.TestEntities.Add(command.Entity);
-        await db.SaveChangesAsync(cancellationToken);
 
         return command.Succeed ? Result.Success : Result.Conflict("error");
     }
