@@ -30,6 +30,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
 
         await Db.OutboxMessages.ExecuteDeleteAsync();
         await Db.DeadLetterOutboxMessages.ExecuteDeleteAsync();
+        await Db.ProcessedOutboxMessages.ExecuteDeleteAsync();
     }
 
     public override async Task DisposeAsync()
@@ -38,6 +39,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         {
             await Db.OutboxMessages.ExecuteDeleteAsync();
             await Db.DeadLetterOutboxMessages.ExecuteDeleteAsync();
+            await Db.ProcessedOutboxMessages.ExecuteDeleteAsync();
         }
 
         await base.DisposeAsync();
@@ -365,6 +367,375 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         // Assert
         await _producer.DidNotReceive()
             .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Run_WithFailedNonBlockingMessage_ShouldPublishLaterMessagesForSameAggregate()
+    {
+        // Arrange
+        var failing = CreateUnprocessedMessage();
+        failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        failing.Type = "failing-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = failing.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(failing, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var failed = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == failing.Id);
+        failed.RetryCount.Should().Be(1);
+
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_WithNonBlockingMessageAwaitingRetry_ShouldPublishLaterMessagesForSameAggregate()
+    {
+        // Arrange
+        var waiting = CreateUnprocessedMessage();
+        waiting.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        waiting.Type = "waiting-topic";
+        waiting.RetryCount = 1;
+        waiting.NextRetryUtc = DateTimeProvider.UtcNow.AddMinutes(5);
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = waiting.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(waiting, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("waiting-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_WithNonBlockingDeadLetter_ShouldPublishLaterMessagesForSameAggregate()
+    {
+        // Arrange
+        var deadLetter = new DeadLetterOutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            AggregateId = Guid.NewGuid(),
+            OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10),
+            Type = "dead-letter-topic",
+            Content = "{\"key\":\"value\"}",
+            RetryCount = 5,
+            DeadLetteredOnUtc = DateTimeProvider.UtcNow
+        };
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = deadLetter.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.DeadLetterOutboxMessages.Add(deadLetter);
+        Db.OutboxMessages.Add(later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_WithNonBlockingMessageBehindWaitingBlockingMessage_ShouldNotPublish()
+    {
+        // Arrange
+        var waiting = CreateUnprocessedMessage();
+        waiting.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        waiting.IsBlocking = true;
+        waiting.RetryCount = 1;
+        waiting.NextRetryUtc = DateTimeProvider.UtcNow.AddMinutes(5);
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = waiting.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(waiting, later);
+        await Db.SaveChangesAsync();
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var held = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
+        held.Outcome.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Run_WithNewerPublishedMessageOfSameType_ShouldMarkOlderAsOutdatedWithoutProducing()
+    {
+        // Arrange
+        var older = CreateUnprocessedMessage();
+        older.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        older.RetryCount = 1;
+        older.NextRetryUtc = DateTimeProvider.UtcNow.AddMinutes(-1);
+
+        var newer = CreateUnprocessedMessage();
+        newer.AggregateId = older.AggregateId;
+        newer.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        newer.ProcessedOn = DateTimeProvider.UtcNow.AddMinutes(-4);
+        newer.Outcome = OutboxMessageOutcome.Published;
+
+        Db.OutboxMessages.AddRange(older, newer);
+        await Db.SaveChangesAsync();
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var outdated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == older.Id);
+        outdated.Outcome.Should().Be(OutboxMessageOutcome.Outdated);
+        outdated.ProcessedOn.Should().Be(DateTimeProvider.UtcNow);
+    }
+
+    [Fact]
+    public async Task Run_WithNewerArchivedMessageOfSameType_ShouldMarkOlderAsOutdatedWithoutProducing()
+    {
+        // Arrange
+        var older = CreateUnprocessedMessage();
+        older.OccurredOnUtc = DateTimeProvider.UtcNow.AddDays(-10);
+
+        var archived = new ProcessedOutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            AggregateId = older.AggregateId,
+            OccurredOnUtc = DateTimeProvider.UtcNow.AddDays(-9),
+            Type = older.Type,
+            Content = "{\"key\":\"value\"}",
+            ProcessedOn = DateTimeProvider.UtcNow.AddDays(-9),
+            Outcome = OutboxMessageOutcome.Published
+        };
+
+        Db.OutboxMessages.Add(older);
+        Db.ProcessedOutboxMessages.Add(archived);
+        await Db.SaveChangesAsync();
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var outdated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == older.Id);
+        outdated.Outcome.Should().Be(OutboxMessageOutcome.Outdated);
+    }
+
+    [Fact]
+    public async Task Run_WithNewerPublishedMessageOfOtherType_ShouldProduce()
+    {
+        // Arrange
+        var older = CreateUnprocessedMessage();
+        older.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+
+        var newer = CreateUnprocessedMessage();
+        newer.AggregateId = older.AggregateId;
+        newer.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        newer.Type = "other-topic";
+        newer.ProcessedOn = DateTimeProvider.UtcNow.AddMinutes(-4);
+        newer.Outcome = OutboxMessageOutcome.Published;
+
+        Db.OutboxMessages.AddRange(older, newer);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(older.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == older.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_WithBlockingMessageAndNewerPublishedOfSameType_ShouldProduce()
+    {
+        // Arrange
+        var older = CreateUnprocessedMessage();
+        older.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        older.IsBlocking = true;
+
+        var newer = CreateUnprocessedMessage();
+        newer.AggregateId = older.AggregateId;
+        newer.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        newer.ProcessedOn = DateTimeProvider.UtcNow.AddMinutes(-4);
+        newer.Outcome = OutboxMessageOutcome.Published;
+
+        Db.OutboxMessages.AddRange(older, newer);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(older.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == older.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_WithUnavailable_ShouldKeepRetryCountAndSetLastError()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Unavailable, "timed out"));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(0);
+        updated.NextRetryUtc.Should().BeNull();
+        updated.LastError.Should().Be("timed out");
+        updated.Outcome.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Run_WithUnavailableOnFinalAttempt_ShouldNotMoveToDeadLetters()
+    {
+        // Arrange
+        var message = CreateUnprocessedMessage();
+        message.RetryCount = 4;
+        Db.OutboxMessages.Add(message);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Unavailable, "timed out"));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        updated.RetryCount.Should().Be(4);
+
+        var deadLettered = await Db.DeadLetterOutboxMessages.AsNoTracking().AnyAsync(m => m.Id == message.Id);
+        deadLettered.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Run_WithUnavailable_ShouldStopNonBlockingAggregateForRun()
+    {
+        // Arrange
+        var unavailable = CreateUnprocessedMessage();
+        unavailable.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        unavailable.Type = "unavailable-topic";
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = unavailable.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.OutboxMessages.AddRange(unavailable, later);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("unavailable-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Unavailable, "timed out"));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Run_WithBatchFullOfHeldBackMessages_ShouldPublishOtherAggregates()
+    {
+        // Arrange
+        var job = new ProcessOutboxMessagesJob<TestDbContext>(Db, _logger, _producer, DateTimeProvider, Options.Create(new OutboxOptions { BatchSize = 2 }));
+
+        var deadLetter = new DeadLetterOutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            AggregateId = Guid.NewGuid(),
+            OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-20),
+            Type = "dead-letter-topic",
+            Content = "{\"key\":\"value\"}",
+            IsBlocking = true,
+            RetryCount = 5,
+            DeadLetteredOnUtc = DateTimeProvider.UtcNow
+        };
+
+        var held = Enumerable.Range(1, 3).Select(i =>
+        {
+            var message = CreateUnprocessedMessage();
+            message.AggregateId = deadLetter.AggregateId;
+            message.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-20 + i);
+            message.Type = "held-topic";
+            return message;
+        }).ToList();
+
+        var healthy = CreateUnprocessedMessage();
+        healthy.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-1);
+        healthy.Type = "healthy-topic";
+
+        Db.DeadLetterOutboxMessages.Add(deadLetter);
+        Db.OutboxMessages.AddRange(held);
+        Db.OutboxMessages.Add(healthy);
+        await Db.SaveChangesAsync();
+
+        _producer.ProduceAsync("healthy-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
+
+        // Act
+        await job.Run(CancellationToken.None);
+
+        // Assert
+        await _producer.DidNotReceive()
+            .ProduceAsync("held-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+
+        var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == healthy.Id);
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
     }
 
     [Fact]
