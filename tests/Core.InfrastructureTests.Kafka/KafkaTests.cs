@@ -1,5 +1,6 @@
 using Core.Json;
 using Core.InfrastructureTests.Kafka.Fixtures;
+using Core.KafkaProducer;
 using FluentAssertions;
 using Xunit;
 
@@ -54,6 +55,53 @@ public class KafkaTests(KafkaFixture kafkaFixture)
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task ProduceAsync_WithReachableBroker_ShouldReturnDelivered()
+    {
+        // Arrange
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
+
+        // Act
+        var result = await producer.ProduceAsync("delivered-topic", new TestMessage { Id = 1, Content = "Test" }, "key");
+
+        // Assert
+        result.Status.Should().Be(ProduceStatus.Delivered);
+        result.Error.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProduceAsync_WithOversizedMessage_ShouldReturnRejected()
+    {
+        // Arrange
+        using var producer = kafkaFixture.CreateProducer<TestMessage>();
+        var message = new TestMessage { Id = 1, Content = new string('x', 2 * 1024 * 1024) };
+
+        // Act
+        var result = await producer.ProduceAsync("oversized-topic", message, "key");
+
+        // Assert
+        result.Status.Should().Be(ProduceStatus.Rejected);
+        result.Error.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task ProduceAsync_WithUnreachableBroker_ShouldReturnUnavailable()
+    {
+        // Arrange
+        using var producer = kafkaFixture.CreateProducer<TestMessage>(new KafkaProducerConfiguration
+        {
+            BootstrapServers = "localhost:1",
+            MessageTimeoutMs = 1000
+        });
+
+        // Act
+        var result = await producer.ProduceAsync("unreachable-topic", new TestMessage { Id = 1, Content = "Test" }, "key");
+
+        // Assert
+        result.Status.Should().Be(ProduceStatus.Unavailable);
+        result.Error.Should().NotBeNullOrEmpty();
     }
 
     [Fact]

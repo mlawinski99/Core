@@ -11,5 +11,6 @@ public class ProcessedOutboxMessageConfiguration : IEntityTypeConfiguration<Proc
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Type).IsRequired();
         builder.Property(x => x.Content).IsRequired();
+        builder.Property(x => x.Outcome).HasConversion<string>();
     }
 }

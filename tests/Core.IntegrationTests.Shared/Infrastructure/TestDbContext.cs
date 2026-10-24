@@ -28,6 +28,7 @@ public class TestDbContext(
     public DbSet<TestEntity> TestEntities { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
     public DbSet<ProcessedOutboxMessage> ProcessedOutboxMessages { get; set; }
+    public DbSet<DeadLetterOutboxMessage> DeadLetterOutboxMessages { get; set; }
     public DbSet<StoredFile> StoredFiles { get; set; }
     public DbSet<UserPermission> UserPermissions { get; set; }
     public DbSet<Role> Roles { get; set; }
@@ -81,6 +82,7 @@ public class TestDbContext(
 
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessedOutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new DeadLetterOutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new StoredFileConfiguration());
         modelBuilder.ApplyConfiguration(new UserPermissionConfiguration());
         modelBuilder.ApplyConfiguration(new RoleConfiguration());

@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using FluentAssertions;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Core.InfrastructureTests.Outbox;
@@ -30,12 +29,16 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         _job = new ProcessOutboxMessagesJob<TestDbContext>(Db, _logger, _producer, DateTimeProvider, Options.Create(new OutboxOptions()));
 
         await Db.OutboxMessages.ExecuteDeleteAsync();
+        await Db.DeadLetterOutboxMessages.ExecuteDeleteAsync();
     }
 
     public override async Task DisposeAsync()
     {
         if (Db is not null)
+        {
             await Db.OutboxMessages.ExecuteDeleteAsync();
+            await Db.DeadLetterOutboxMessages.ExecuteDeleteAsync();
+        }
 
         await base.DisposeAsync();
     }
@@ -50,14 +53,14 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
-        updated.IsProcessed.Should().BeTrue();
+        updated.Outcome.Should().Be(OutboxMessageOutcome.Published);
         updated.ProcessedOn.Should().Be(DateTimeProvider.UtcNow);
 
         _logger.Received().LogInformation(
@@ -66,7 +69,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
     }
 
     [Fact]
-    public async Task Run_WithProduceFailure_ShouldLogErrorAndNotMarkAsProcessed()
+    public async Task Run_WithProduceFailure_ShouldLogRetryWarningAndNotMarkAsProcessed()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
@@ -74,43 +77,18 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
 
         // Act
         await _job.Run(CancellationToken.None);
 
         // Assert
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
-        updated.IsProcessed.Should().BeFalse();
+        updated.Outcome.Should().BeNull();
         updated.ProcessedOn.Should().BeNull();
 
-        _logger.Received().LogError(
-            Arg.Is<string>(s => s.Contains("{MessageId}")),
-            Arg.Is<object[]>(args => args.Any(a => a.Equals(message.Id))));
-    }
-
-    [Fact]
-    public async Task Run_WithProduceException_ShouldLogErrorAndNotMarkAsProcessed()
-    {
-        // Arrange
-        var message = CreateUnprocessedMessage();
-        Db.OutboxMessages.Add(message);
-        await Db.SaveChangesAsync();
-
-        _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new Exception("Kafka unavailable"));
-
-        // Act
-        await _job.Run(CancellationToken.None);
-
-        // Assert
-        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
-        updated.IsProcessed.Should().BeFalse();
-        updated.ProcessedOn.Should().BeNull();
-
-        _logger.Received().LogError(
-            Arg.Any<Exception>(),
-            Arg.Is<string>(s => s.Contains("{MessageId}")),
+        _logger.Received().LogWarning(
+            Arg.Is<string>(s => s.Contains("Retry")),
             Arg.Is<object[]>(args => args.Any(a => a.Equals(message.Id))));
     }
 
@@ -120,7 +98,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         // Arrange
         var processed = CreateUnprocessedMessage();
         processed.ProcessedOn = DateTimeProvider.UtcNow;
-        processed.IsProcessed = true;
+        processed.Outcome = OutboxMessageOutcome.Published;
 
         Db.OutboxMessages.Add(processed);
         await Db.SaveChangesAsync();
@@ -151,7 +129,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
 
         var producedTopics = new List<string>();
         _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true)
+            .Returns(new ProduceResult(ProduceStatus.Delivered))
             .AndDoes(ci => producedTopics.Add(ci.ArgAt<string>(0)));
 
         // Act
@@ -172,7 +150,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
@@ -183,7 +161,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
     }
 
     [Fact]
-    public async Task Run_WithFailedMessage_ShouldSkipSameAggregateAndPublishOthers()
+    public async Task Run_WithFailedBlockingMessage_ShouldSkipSameAggregateAndPublishOthers()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
@@ -192,6 +170,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         failing.AggregateId = aggregateId;
         failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
         failing.Type = "failing-topic";
+        failing.IsBlocking = true;
 
         var sameAggregate = CreateUnprocessedMessage();
         sameAggregate.AggregateId = aggregateId;
@@ -206,11 +185,11 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
         _producer.ProduceAsync("same-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
         _producer.ProduceAsync("other-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
@@ -220,11 +199,11 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
             .ProduceAsync("same-aggregate-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
 
         var skipped = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == sameAggregate.Id);
-        skipped.IsProcessed.Should().BeFalse();
+        skipped.Outcome.Should().BeNull();
         skipped.RetryCount.Should().Be(0);
 
         var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == otherAggregate.Id);
-        published.IsProcessed.Should().BeTrue();
+        published.Outcome.Should().Be(OutboxMessageOutcome.Published);
     }
 
     [Fact]
@@ -236,7 +215,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
 
         // Act
         await _job.Run(CancellationToken.None);
@@ -245,8 +224,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
         updated.RetryCount.Should().Be(1);
         updated.NextRetryUtc.Should().Be(DateTimeProvider.UtcNow.AddMinutes(2));
-        updated.LastError.Should().NotBeNullOrEmpty();
-        updated.StoppedRetryingUtc.Should().BeNull();
+        updated.LastError.Should().Be("rejected");
     }
 
     [Fact]
@@ -269,12 +247,13 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
     }
 
     [Fact]
-    public async Task Run_WithFailureOnFinalAttempt_ShouldStopRetryingAndExcludeFromLaterRuns()
+    public async Task Run_WithBlockingFailureOnFinalAttempt_ShouldMoveToDeadLettersAndBlockLaterMessages()
     {
         // Arrange
         var message = CreateUnprocessedMessage();
         message.RetryCount = 4;
         message.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
+        message.IsBlocking = true;
 
         var later = CreateUnprocessedMessage();
         later.AggregateId = message.AggregateId;
@@ -285,19 +264,23 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
         _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
         await _job.Run(CancellationToken.None);
 
         // Assert
-        var updated = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
-        updated.RetryCount.Should().Be(5);
-        updated.StoppedRetryingUtc.Should().Be(DateTimeProvider.UtcNow);
-        updated.LastError.Should().NotBeNullOrEmpty();
+        var remaining = await Db.OutboxMessages.AsNoTracking().AnyAsync(m => m.Id == message.Id);
+        remaining.Should().BeFalse();
+
+        var deadLetter = await Db.DeadLetterOutboxMessages.AsNoTracking().FirstAsync(m => m.Id == message.Id);
+        deadLetter.RetryCount.Should().Be(5);
+        deadLetter.LastError.Should().Be("rejected");
+        deadLetter.OccurredOnUtc.Should().Be(message.OccurredOnUtc);
+        deadLetter.DeadLetteredOnUtc.Should().Be(DateTimeProvider.UtcNow);
 
         await _producer.Received(1)
             .ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
@@ -306,11 +289,11 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
             .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
 
         var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
-        blocked.IsProcessed.Should().BeFalse();
+        blocked.Outcome.Should().BeNull();
     }
 
     [Fact]
-    public async Task Run_WithFailedMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
+    public async Task Run_WithBlockingMessageAwaitingRetry_ShouldNotPublishLaterMessageForSameAggregate()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
@@ -319,6 +302,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         failing.AggregateId = aggregateId;
         failing.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
         failing.Type = "failing-topic";
+        failing.IsBlocking = true;
 
         var later = CreateUnprocessedMessage();
         later.AggregateId = aggregateId;
@@ -329,9 +313,9 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync("failing-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(new ProduceResult(ProduceStatus.Rejected, "rejected"));
         _producer.ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
@@ -342,32 +326,38 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
             .ProduceAsync("later-topic", Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
 
         var blocked = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == later.Id);
-        blocked.IsProcessed.Should().BeFalse();
+        blocked.Outcome.Should().BeNull();
     }
 
     [Fact]
-    public async Task Run_WithParkedMessage_ShouldNotPublishLaterMessageForSameAggregate()
+    public async Task Run_WithBlockingDeadLetter_ShouldNotPublishLaterMessageForSameAggregate()
     {
         // Arrange
         var aggregateId = Guid.NewGuid();
 
-        var parked = CreateUnprocessedMessage();
-        parked.AggregateId = aggregateId;
-        parked.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10);
-        parked.RetryCount = 5;
-        parked.StoppedRetryingUtc = DateTimeProvider.UtcNow;
-        parked.Type = "parked-topic";
+        var deadLetter = new DeadLetterOutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            AggregateId = aggregateId,
+            OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10),
+            Type = "dead-letter-topic",
+            Content = "{\"key\":\"value\"}",
+            IsBlocking = true,
+            RetryCount = 5,
+            DeadLetteredOnUtc = DateTimeProvider.UtcNow
+        };
 
         var later = CreateUnprocessedMessage();
         later.AggregateId = aggregateId;
         later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
         later.Type = "later-topic";
 
-        Db.OutboxMessages.AddRange(parked, later);
+        Db.DeadLetterOutboxMessages.Add(deadLetter);
+        Db.OutboxMessages.Add(later);
         await Db.SaveChangesAsync();
 
         _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(new ProduceResult(ProduceStatus.Delivered));
 
         // Act
         await _job.Run(CancellationToken.None);
@@ -388,7 +378,7 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         using var cts = new CancellationTokenSource();
 
         _producer.ProduceAsync(message.Type, Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns<bool>(_ =>
+            .Returns<ProduceResult>(_ =>
             {
                 cts.Cancel();
                 throw new OperationCanceledException(cts.Token);
@@ -424,7 +414,6 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
         OccurredOnUtc = DateTimeProvider.UtcNow,
         Type = $"test-topic-{_testId}",
         Content = "{\"key\":\"value\"}",
-        ProcessedOn = null,
-        IsProcessed = false
+        ProcessedOn = null
     };
 }

@@ -37,7 +37,7 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
             .SingleOrDefaultAsync(x => x.Content.Contains(entity.Id.ToString()));
         message.Should().NotBeNull();
         message.Type.Should().Be(typeof(TestEntityCreatedEvent).FullName);
-        message.IsProcessed.Should().BeFalse();
+        message.Outcome.Should().BeNull();
         entity.DomainEvents.Should().BeEmpty();
     }
 

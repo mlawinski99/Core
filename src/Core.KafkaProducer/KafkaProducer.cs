@@ -33,14 +33,15 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
         _producer = BuildProducer();
     }
 
-    public async Task<bool> ProduceAsync(string topic, T message, string? key, CancellationToken cancellationToken = default)
+    public async Task<ProduceResult> ProduceAsync(string topic, T message, string? key, CancellationToken cancellationToken = default)
     {
-        var serializedMessage = _jsonSerializer.Serialize(message);
         var messageKey = key ?? Guid.Empty.ToString();
         var producer = _producer;
 
         try
         {
+            var serializedMessage = _jsonSerializer.Serialize(message);
+
             await producer.ProduceAsync(topic, new Message<string, string>
             {
                 Key = messageKey,
@@ -48,7 +49,7 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
             }, cancellationToken);
 
             _logger.LogInformation("Successfully delivered message {Key} to topic {Topic}", messageKey, topic);
-            return true;
+            return new ProduceResult(ProduceStatus.Delivered);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -58,12 +59,19 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
         {
             _logger.LogError(ex, "Fatal producer error delivering message {Key} to topic {Topic}; rebuilding the Kafka client", messageKey, topic);
             RebuildProducer(producer);
-            return false;
+            return new ProduceResult(ProduceStatus.Unavailable, ex.Error.Reason);
+        }
+        catch (KafkaException ex)
+        {
+            var status = ex.Error.Code == ErrorCode.Local_MsgTimedOut ? ProduceStatus.Unavailable : ProduceStatus.Rejected;
+
+            _logger.LogError(ex, "Failed to deliver message {Key} to topic {Topic}: {Status} ({ErrorCode})", messageKey, topic, status, ex.Error.Code);
+            return new ProduceResult(status, ex.Error.Reason);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to deliver message {Key} to topic {Topic}", messageKey, topic);
-            return false;
+            return new ProduceResult(ProduceStatus.Rejected, ex.Message);
         }
     }
 
