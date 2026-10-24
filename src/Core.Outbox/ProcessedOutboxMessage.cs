@@ -8,10 +8,10 @@ public sealed class ProcessedOutboxMessage
     public string Type { get; set; }
     public string Content { get; set; }
     public string? CorrelationId { get; set; }
+    public bool IsBlocking { get; set; }
     public DateTime? ProcessedOn { get; set; }
-    public bool IsProcessed { get; set; }
+    public OutboxMessageOutcome? Outcome { get; set; }
     public int RetryCount { get; set; }
     public DateTime? NextRetryUtc { get; set; }
-    public DateTime? StoppedRetryingUtc { get; set; }
     public string? LastError { get; set; }
 }

@@ -2,5 +2,5 @@ namespace Core.KafkaProducer;
 
 public interface IProducer<T>
 {
-    Task<bool> ProduceAsync(string topic, T message, string? key, CancellationToken cancellationToken = default);
+    Task<ProduceResult> ProduceAsync(string topic, T message, string? key, CancellationToken cancellationToken = default);
 }

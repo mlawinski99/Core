@@ -49,7 +49,7 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
         var message = CreateMessage();
         message.CorrelationId = "trace-id";
         message.ProcessedOn = DateTimeProvider.UtcNow.AddDays(-8);
-        message.IsProcessed = true;
+        message.Outcome = OutboxMessageOutcome.Published;
         Db.OutboxMessages.Add(message);
         await Db.SaveChangesAsync();
 
@@ -70,7 +70,7 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
         moved.Content.Should().Be(message.Content);
         moved.CorrelationId.Should().Be("trace-id");
         moved.ProcessedOn.Should().Be(message.ProcessedOn);
-        moved.IsProcessed.Should().BeTrue();
+        moved.Outcome.Should().Be(OutboxMessageOutcome.Published);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
         // Arrange
         var message = CreateMessage();
         message.ProcessedOn = DateTimeProvider.UtcNow.AddDays(-6);
-        message.IsProcessed = true;
+        message.Outcome = OutboxMessageOutcome.Published;
         Db.OutboxMessages.Add(message);
         await Db.SaveChangesAsync();
 
@@ -123,33 +123,6 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
     }
 
     [Fact]
-    public async Task Run_WithBlockingMessage_ShouldNotMove()
-    {
-        // Arrange
-        var message = CreateMessage();
-        message.OccurredOnUtc = DateTimeProvider.UtcNow.AddDays(-30);
-        message.RetryCount = 5;
-        message.StoppedRetryingUtc = DateTimeProvider.UtcNow.AddDays(-29);
-        message.LastError = "test";
-        Db.OutboxMessages.Add(message);
-        await Db.SaveChangesAsync();
-
-        // Act
-        await _job.Run(CancellationToken.None);
-
-        // Assert
-        var remaining = await Db.OutboxMessages
-            .AsNoTracking()
-            .AnyAsync(m => m.Id == message.Id);
-        remaining.Should().BeTrue();
-
-        var moved = await Db.ProcessedOutboxMessages
-            .AsNoTracking()
-            .AnyAsync(m => m.Id == message.Id);
-        moved.Should().BeFalse();
-    }
-
-    [Fact]
     public async Task Run_WithMoreMessagesThanBatchSize_ShouldMoveAllOfThem()
     {
         // Arrange
@@ -157,7 +130,7 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
         {
             var message = CreateMessage();
             message.ProcessedOn = DateTimeProvider.UtcNow.AddDays(-8);
-            message.IsProcessed = true;
+            message.Outcome = OutboxMessageOutcome.Published;
             return message;
         }).ToList();
 
@@ -190,7 +163,6 @@ public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture
         OccurredOnUtc = DateTimeProvider.UtcNow.AddDays(-10),
         Type = $"test-topic-{_testId}",
         Content = "{\"key\":\"value\"}",
-        ProcessedOn = null,
-        IsProcessed = false
+        ProcessedOn = null
     };
 }

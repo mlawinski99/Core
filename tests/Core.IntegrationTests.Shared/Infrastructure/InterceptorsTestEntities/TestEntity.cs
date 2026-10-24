@@ -9,4 +9,7 @@ public class TestEntity : AggregateRoot
     public void RaiseCreatedEvent() => AddDomainEvent(new TestEntityCreatedEvent(Id, DateTime.UtcNow));
 }
 
-public record TestEntityCreatedEvent(Guid AggregateId, DateTime OccurredOnUtc) : IDomainEvent;
+public record TestEntityCreatedEvent(Guid AggregateId, DateTime OccurredOnUtc) : IDomainEvent
+{
+    public bool IsBlocking => false;
+}

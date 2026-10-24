@@ -48,7 +48,8 @@ public class OutboxInterceptor(IJsonSerializer jsonSerializer) : SaveChangesInte
                     OccurredOnUtc = domainEvent.OccurredOnUtc,
                     Type = domainEvent.GetType().FullName!,
                     Content = jsonSerializer.Serialize(domainEvent),
-                    CorrelationId = correlationId
+                    CorrelationId = correlationId,
+                    IsBlocking = domainEvent.IsBlocking
                 })
                 .ToList();
 
