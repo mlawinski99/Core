@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Core.CQRS;
 
@@ -10,7 +11,8 @@ public static class CqrsDependencyInstaller
         services.AddHandlers(assembly, typeof(ICommandHandler<,>));
         services.AddHandlers(assembly, typeof(IQueryHandler<,>));
 
-        services.AddScoped<IRequestDispatcher, RequestDispatcher>();
+        // each library registers its own handlers with AddCqrs, the dispatcher only once
+        services.TryAddScoped<IRequestDispatcher, RequestDispatcher>();
 
         return services;
     }

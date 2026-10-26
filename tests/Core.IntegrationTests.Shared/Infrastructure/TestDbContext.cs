@@ -4,6 +4,8 @@ using Core.Identity.Domain;
 using Core.IntegrationTests.Shared.Infrastructure.TestEntities;
 using Core.KeycloakSync;
 using Core.Outbox;
+using Core.Outbox.Configurations;
+using Core.Outbox.Entities;
 using Core.Permissions;
 using Core.Permissions.Configurations;
 using Core.Permissions.Entities;

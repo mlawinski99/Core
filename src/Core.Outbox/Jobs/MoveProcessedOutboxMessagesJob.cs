@@ -5,7 +5,7 @@ using Core.Logger;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace Core.Outbox;
+namespace Core.Outbox.Jobs;
 
 [DisallowConcurrentExecution]
 // no retries, the next scheduled run picks up whatever failed

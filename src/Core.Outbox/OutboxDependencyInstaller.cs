@@ -1,4 +1,6 @@
 using Core.BackgroundJobs;
+using Core.CQRS;
+using Core.Outbox.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,10 @@ public static class OutboxDependencyInstaller
             .ValidateOnStart();
 
         services.AddScoped<IInterceptor, OutboxInterceptor>();
+        services.AddScoped<IOutbox>(sp => sp.GetRequiredService<TContext>());
+
+        // call AddOutbox before AddCqrsDecorators so the outbox handlers get decorated
+        services.AddCqrs(typeof(OutboxDependencyInstaller).Assembly);
 
         services.AddRecurringJob<ProcessOutboxMessagesJob<TContext>>(
             ProcessOutboxMessagesJob<TContext>.JobId, sp => sp.GetRequiredService<IOptions<OutboxOptions>>().Value.ProcessCron);
