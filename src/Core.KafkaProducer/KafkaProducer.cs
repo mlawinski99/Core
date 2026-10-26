@@ -63,7 +63,9 @@ public class KafkaProducer<T> : IProducer<T>, IDisposable
         }
         catch (KafkaException ex)
         {
-            var status = ex.Error.Code == ErrorCode.Local_MsgTimedOut ? ProduceStatus.Unavailable : ProduceStatus.Rejected;
+            var status = ex.Error.Code is ErrorCode.Local_MsgTimedOut or ErrorCode.Local_QueueFull
+                ? ProduceStatus.Unavailable
+                : ProduceStatus.Rejected;
 
             _logger.LogError(ex, "Failed to deliver message {Key} to topic {Topic}: {Status} ({ErrorCode})", messageKey, topic, status, ex.Error.Code);
             return new ProduceResult(status, ex.Error.Reason);
