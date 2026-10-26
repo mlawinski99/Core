@@ -3,13 +3,15 @@ using Core.IntegrationTests.Shared.Fixtures;
 using Core.IntegrationTests.Shared.Infrastructure;
 using Core.Logger;
 using Core.Outbox;
+using Core.Outbox.Entities;
+using Core.Outbox.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
 
-namespace Core.InfrastructureTests.Outbox;
+namespace Core.InfrastructureTests.Outbox.Jobs;
 
 [Collection("Outbox")]
 public class MoveProcessedOutboxMessagesJobTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)

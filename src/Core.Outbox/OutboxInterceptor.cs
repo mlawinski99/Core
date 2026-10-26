@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Core.DomainTypes;
 using Core.Json;
+using Core.Outbox.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 

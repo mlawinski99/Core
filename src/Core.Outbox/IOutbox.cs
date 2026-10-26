@@ -1,3 +1,4 @@
+using Core.Outbox.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Outbox;

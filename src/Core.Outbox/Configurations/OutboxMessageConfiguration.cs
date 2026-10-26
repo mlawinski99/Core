@@ -1,7 +1,8 @@
+using Core.Outbox.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Core.Outbox;
+namespace Core.Outbox.Configurations;
 
 public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {

@@ -29,7 +29,9 @@ Older code predates some rules (explicit constructors, public implementations, t
 - Third-party types (AWS, Redis, Kafka) never leak into public APIs; use own translation types
 - One `XxxDependencyInstaller.AddXxx(...)` extension per project; generic `AddXxx<TContext>` when the lib owns tables
 - Lib-owned tables: an interface with `DbSet`s implemented by the consumer's DbContext (`IOutbox`, `IFileStore`) + `IEntityTypeConfiguration`
+- Folders per kind, namespace follows folder: `Commands/`, `Queries/`, `Models/`, `Controllers/`, `Entities/`, `Configurations/`, `Jobs/`, `Errors/`
 - Services don't call `SaveChanges`; the command's unit of work / transaction decorator commits. Jobs have no unit of work and save per chunk
+- Libs with commands/queries register their handlers via `AddCqrs(ownAssembly)` inside `AddXxx`; consumers call `AddXxx` before `AddCqrsDecorators` (TryDecorate only wraps handlers already registered)
 - Errors: `Result` / `Result<T>` with `ResultCode`; messages as constants in `Errors/ErrorMessages.cs`
 
 ## Options
@@ -52,6 +54,7 @@ Reference: `MarkUploadedFilesJob`, `CleanupStoredFilesJob`.
 
 - `// Arrange` / `// Act` / `// Assert` comments; no helper methods: query inline, assign to a local, then assert
 - Test our own decisions at their boundary, never framework/library behaviour (EF, Hangfire, S3)
+- Commands/queries are tested through `IRequestDispatcher` with the production registrations (unit of work + decorators), never by calling `Handle` and saving manually
 - Integration tests use Testcontainers: each collection gets its own containers via `ICollectionFixture<XxxFixture>`; fixtures live in `Core.IntegrationTests.Shared` (except `KafkaFixture`)
 - `TestLogger<T>` instead of NSubstitute for loggers of internal types (NSubstitute cannot proxy them)
 - Naming: `Method_WithCondition_ShouldOutcome`

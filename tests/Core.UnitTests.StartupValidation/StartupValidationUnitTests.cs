@@ -1,6 +1,6 @@
 using System.Reflection;
 using Core.DomainTypes;
-using Core.Outbox;
+using Core.Outbox.Entities;
 using FluentAssertions;
 using Xunit;
 

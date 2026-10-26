@@ -4,13 +4,16 @@ using Core.IntegrationTests.Shared.Infrastructure;
 using Core.KafkaProducer;
 using Core.Logger;
 using Core.Outbox;
+using Core.Outbox.Entities;
+using Core.Outbox.Jobs;
+using Core.Outbox.Commands;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
 
-namespace Core.InfrastructureTests.Outbox;
+namespace Core.InfrastructureTests.Outbox.Jobs;
 
 [Collection("Outbox")]
 public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : IntegrationTestBase(postgresFixture)
@@ -736,6 +739,46 @@ public class ProcessOutboxMessagesJobTests(PostgresFixture postgresFixture) : In
 
         var published = await Db.OutboxMessages.AsNoTracking().FirstAsync(m => m.Id == healthy.Id);
         published.Outcome.Should().Be(OutboxMessageOutcome.Published);
+    }
+
+    [Fact]
+    public async Task Run_AfterReplay_ShouldPublishReplayedBeforeHeldBackMessages()
+    {
+        // Arrange
+        var deadLetter = new DeadLetterOutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            AggregateId = Guid.NewGuid(),
+            OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-10),
+            Type = "dead-letter-topic",
+            Content = "{\"key\":\"value\"}",
+            IsBlocking = true,
+            RetryCount = 5,
+            DeadLetteredOnUtc = DateTimeProvider.UtcNow
+        };
+
+        var later = CreateUnprocessedMessage();
+        later.AggregateId = deadLetter.AggregateId;
+        later.OccurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        later.Type = "later-topic";
+
+        Db.DeadLetterOutboxMessages.Add(deadLetter);
+        Db.OutboxMessages.Add(later);
+        await Db.SaveChangesAsync();
+
+        await new ReplayDeadLetter(Db).Handle(new ReplayDeadLetterCommand(deadLetter.Id), CancellationToken.None);
+        await Db.SaveChangesAsync();
+
+        var producedTopics = new List<string>();
+        _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<OutboxMessage>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ProduceResult(ProduceStatus.Delivered))
+            .AndDoes(ci => producedTopics.Add(ci.ArgAt<string>(0)));
+
+        // Act
+        await _job.Run(CancellationToken.None);
+
+        // Assert
+        producedTopics.Should().Equal("dead-letter-topic", "later-topic");
     }
 
     [Fact]

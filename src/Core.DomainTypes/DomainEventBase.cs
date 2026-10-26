@@ -8,6 +8,6 @@ public abstract class DomainEventBase : IDomainEvent
 
     protected DomainEventBase()
     {
-        OccurredOnUtc = DateTime.UtcNow;
+        OccurredOnUtc = DateTime.UtcNow; //@TODO use time provider
     }
 }

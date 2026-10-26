@@ -1,4 +1,4 @@
-namespace Core.Outbox;
+namespace Core.Outbox.Entities;
 
 public enum OutboxMessageOutcome
 {
