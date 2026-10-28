@@ -6,15 +6,12 @@ public class TestEntity : AggregateRoot
 {
     public string Name { get; set; } = string.Empty;
 
-    public void RaiseCreatedEvent() => AddDomainEvent(new TestEntityCreatedEvent(Id, DateTime.UtcNow));
+    public void RaiseCreatedEvent(DateTime nowUtc) => AddDomainEvent(new TestEntityCreatedEvent(Id, nowUtc));
 
-    public void RaiseBlockingEvent() => AddDomainEvent(new TestEntityBlockingEvent(Id, DateTime.UtcNow));
+    public void RaiseBlockingEvent(DateTime nowUtc) => AddDomainEvent(new TestEntityBlockingEvent(Id, nowUtc));
 }
 
-public record TestEntityCreatedEvent(Guid AggregateId, DateTime OccurredOnUtc) : IDomainEvent
-{
-    public bool IsBlocking => false;
-}
+public record TestEntityCreatedEvent(Guid AggregateId, DateTime OccurredOnUtc) : IDomainEvent;
 
 public record TestEntityBlockingEvent(Guid AggregateId, DateTime OccurredOnUtc) : IDomainEvent
 {
