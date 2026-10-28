@@ -24,7 +24,7 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
     {
         // Arrange
         var entity = new TestEntity { Name = "Test" };
-        entity.RaiseCreatedEvent();
+        entity.RaiseCreatedEvent(DateTimeProvider.UtcNow);
         Db.TestEntities.Add(entity);
 
         // Act
@@ -46,7 +46,7 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
     {
         // Arrange
         var entity = new TestEntity { Name = "Test" };
-        entity.RaiseBlockingEvent();
+        entity.RaiseBlockingEvent(DateTimeProvider.UtcNow);
         Db.TestEntities.Add(entity);
 
         // Act
@@ -57,6 +57,25 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
             .AsNoTracking()
             .SingleAsync(x => x.AggregateId == entity.Id);
         message.IsBlocking.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SavingChanges_WithAggregateDomainEvents_ShouldCopyOccurredOnUtcToOutboxMessage()
+    {
+        // Arrange
+        var occurredOnUtc = DateTimeProvider.UtcNow.AddMinutes(-5);
+        var entity = new TestEntity { Name = "Test" };
+        entity.RaiseCreatedEvent(occurredOnUtc);
+        Db.TestEntities.Add(entity);
+
+        // Act
+        await Db.SaveChangesAsync();
+
+        // Assert
+        var message = await Db.OutboxMessages
+            .AsNoTracking()
+            .SingleAsync(x => x.AggregateId == entity.Id);
+        message.OccurredOnUtc.Should().Be(occurredOnUtc);
     }
 
     [Fact]
@@ -71,7 +90,7 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
         }
 
         var entity = new TestEntity { Id = existing.Id, Name = "Test" };
-        entity.RaiseCreatedEvent();
+        entity.RaiseCreatedEvent(DateTimeProvider.UtcNow);
         Db.TestEntities.Add(entity);
 
         // Act
@@ -97,7 +116,7 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
     {
         // Arrange
         var entity = new TestEntity { Name = "Test" };
-        entity.RaiseCreatedEvent();
+        entity.RaiseCreatedEvent(DateTimeProvider.UtcNow);
         Db.TestEntities.Add(entity);
 
         // Act
@@ -126,8 +145,8 @@ public class OutboxInterceptorTests(PostgresFixture postgresFixture)
         await using var db = PostgresFixture.CreateDbContext(new OutboxInterceptor(serializer));
 
         var entity = new TestEntity { Name = "Test" };
-        entity.RaiseCreatedEvent();
-        entity.RaiseCreatedEvent();
+        entity.RaiseCreatedEvent(DateTimeProvider.UtcNow);
+        entity.RaiseCreatedEvent(DateTimeProvider.UtcNow);
         db.TestEntities.Add(entity);
 
         // Act
